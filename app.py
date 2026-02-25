@@ -1,0 +1,683 @@
+"""
+PT Academy AI Detection Tool
+Uses Zero GPT API to analyse each learner answer for AI-generated content.
+Supports multiple qualifications with configurable prompts and field mappings.
+"""
+
+import os
+import re
+import json
+import tempfile
+from pathlib import Path
+from dotenv import load_dotenv
+from flask import Flask, render_template, request, jsonify, Response, session
+from pypdf import PdfReader
+import requests
+import secrets
+
+# Load environment variables from .env
+load_dotenv()
+
+app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
+app.config['SESSION_TYPE'] = 'filesystem'
+
+# ── API KEY & CLIENT ────────────────────────────────────────────────────────────
+
+ZEROGPT_API_KEY = os.getenv('ZEROGPT_API_KEY')
+if not ZEROGPT_API_KEY:
+    raise ValueError("ZEROGPT_API_KEY not found. Please set it in your .env file or environment.")
+
+ZEROGPT_ENDPOINT = 'https://api.zerogpt.com/api/detect/detectText'
+
+# ── CONFIGURATION LOADING ──────────────────────────────────────────────────────
+
+CONFIG_DIR = Path(__file__).parent / 'config'
+
+def load_courses_config():
+    """Load course definitions and field mappings."""
+    config_file = CONFIG_DIR / 'courses.json'
+    with open(config_file, 'r') as f:
+        return json.load(f)
+
+# Load configurations at startup
+COURSES_CONFIG = load_courses_config()
+
+# Build flat field mapping for quick lookups
+def build_field_map():
+    """Create flat mapping of field_name -> (unit_label, question_label, course_id)"""
+    field_map = {}
+    for course_id, course_data in COURSES_CONFIG['courses'].items():
+        for unit_id, unit_data in course_data['units'].items():
+            unit_label = unit_data['label']
+            for field_name, question_label in unit_data['fields'].items():
+                field_map[field_name] = (unit_label, question_label, course_id)
+    return field_map
+
+FIELD_MAP = build_field_map()
+
+# Legacy field name truncation pattern (for backwards compatibility)
+TRUNCATED_FIELD_MAP = {"xt Field 802": "Text Field 802"}
+
+# Pattern to skip non-text fields
+MCQ_VALUE_PATTERN = re.compile(r'^/\d+$|^/Choice\d+$|^/Off$|^/Yes$|^/No$')
+
+# ── PDF EXTRACTION ─────────────────────────────────────────────────────────────
+
+def extract_answers_from_pdf(pdf_path, course_id='level2_gym'):
+    """Extract learner answers from PDF using configured field mappings."""
+    reader = PdfReader(pdf_path)
+    fields = reader.get_fields()
+    if not fields:
+        return []
+
+    answers = []
+    for raw_name, field in fields.items():
+        name = TRUNCATED_FIELD_MAP.get(raw_name, raw_name)
+        if name not in FIELD_MAP:
+            continue
+
+        unit_label, question_label, detected_course = FIELD_MAP[name]
+
+        # Skip if this field isn't part of the selected course
+        # For backwards compatibility, allow level2_gym fields to be used by default
+        if detected_course != course_id and detected_course != 'level2_gym':
+            continue
+
+        value = field.get('/V', '')
+        if not value:
+            continue
+
+        value_str = str(value).strip()
+        if not value_str or MCQ_VALUE_PATTERN.match(value_str):
+            continue
+
+        # Allow short answers for SMART goal fields, otherwise require minimum 20 chars
+        is_smart_goal = 'SMART' in question_label or 'Specific' in question_label or 'Measurable' in question_label or 'Attainable' in question_label or 'Relevant' in question_label or 'Timed' in question_label
+        if len(value_str) < 20 and not is_smart_goal:
+            continue
+
+        answers.append({
+            'field': name,
+            'unit': unit_label,
+            'question': question_label,
+            'answer': value_str,
+            'course': course_id,
+        })
+
+    return answers
+
+
+def extract_answers_fallback(pdf_path):
+    """Fallback extraction for PDFs without standard field mappings."""
+    reader = PdfReader(pdf_path)
+    fields = reader.get_fields()
+    if not fields:
+        return []
+
+    skip = re.compile(
+        r'^(Unit_[12]_Q|U5Q|U1_CB|Check Box|dateField|dateFiield|StartDate|resultFirst|'
+        r'resultSecond|resultThird|U6Result|LearnerName|AssessorName)',
+        re.IGNORECASE
+    )
+    answers = []
+    for name, field in fields.items():
+        if skip.match(name):
+            continue
+        value = field.get('/V', '')
+        if not value:
+            continue
+        value_str = str(value).strip()
+        if MCQ_VALUE_PATTERN.match(value_str) or len(value_str) < 40:
+            continue
+        if re.match(r'^\d{1,2}[./]\d{1,2}[./]\d{2,4}$', value_str):
+            continue
+        if re.match(r'^(PASS|REFER|FAIL)[\s\-]', value_str, re.IGNORECASE):
+            continue
+        answers.append({
+            'field': name,
+            'unit': 'Unknown Unit',
+            'question': f'Field: {name}',
+            'answer': value_str,
+            'course': 'unknown',
+        })
+    return answers
+
+
+# ── ANALYSIS FUNCTIONS ────────────────────────────────────────────────────────
+
+def detect_with_zerogpt(question, answer, unit, course_id):
+    """
+    Detect AI-generated content using Zero GPT API.
+
+    Returns dict with:
+    - overall_classification: "AI", "AI Polished", or "Human"
+    - ai_percentage, ai_polished_percentage, human_percentage
+    - confidence: Detection confidence (0-1)
+    - overall_verdict: Explanation
+    - human_signals, ai_signals: Pattern lists
+    """
+    try:
+        # Prepare request headers
+        headers = {
+            'ApiKey': ZEROGPT_API_KEY,
+            'Content-Type': 'application/json',
+        }
+
+        # Prepare request payload
+        payload = {
+            'input_text': answer
+        }
+
+        # Make API request to Zero GPT
+        response = requests.post(ZEROGPT_ENDPOINT, json=payload, headers=headers, timeout=30)
+        response.raise_for_status()
+
+        # Parse response
+        response_data = response.json()
+
+        # Extract data from Zero GPT response
+        # Zero GPT returns: { "success": true, "data": { "fakePercentage": 0-100, "feedback": "...", ... } }
+        data = response_data.get('data', {})
+        fake_percentage = data.get('fakePercentage', 0)
+        feedback = data.get('feedback', '')
+
+        # Extract AI-flagged sentences (h array)
+        ai_flagged_sentences = data.get('h', [])
+        text_words = data.get('textWords', 0)
+        ai_words = data.get('aiWords', 0)
+
+        # Simplified display: single AI percentage with binary classification
+        ai_percentage = round(fake_percentage, 2)
+        human_percentage = round(100 - fake_percentage, 2)
+
+        # Use feedback field for classification (Zero GPT's own verdict)
+        if 'Human Written' in feedback or 'human written' in feedback:
+            classification = 'Human'
+            confidence = 0.9
+        elif 'AI/GPT Generated' in feedback or 'AI Generated' in feedback:
+            classification = 'AI'
+            confidence = 0.9
+        elif 'mixed signals' in feedback.lower() or 'mixed' in feedback.lower():
+            classification = 'Mixed'
+            confidence = 0.7
+        else:
+            # Fallback to percentage-based if feedback doesn't match known patterns
+            if fake_percentage >= 60:
+                classification = 'AI'
+                confidence = 0.5 + (fake_percentage - 60) * 0.01
+            elif fake_percentage < 30:
+                classification = 'Human'
+                confidence = 0.5 + (30 - fake_percentage) * 0.01
+            else:
+                classification = 'Mixed'
+                confidence = 0.5
+
+        confidence = max(0.0, min(1.0, confidence))
+
+        # Generate signals based on percentage
+        ai_signals = []
+        if fake_percentage >= 75:
+            ai_signals.append(f'High AI probability ({fake_percentage}%)')
+        elif fake_percentage >= 50:
+            ai_signals.append(f'Moderate AI probability ({fake_percentage}%)')
+        elif fake_percentage > 0:
+            ai_signals.append(f'Some AI signals detected ({fake_percentage}%)')
+
+        # Use Zero GPT's feedback as the main verdict
+        verdict = feedback if feedback else f'AI probability: {fake_percentage}%'
+
+        return {
+            'overall_classification': classification,
+            'ai_percentage': ai_percentage,
+            'human_percentage': human_percentage,
+            'ai_polished_percentage': 0,  # Backward compatibility - always 0 for new system
+            'confidence': round(confidence, 3),
+            'overall_verdict': verdict,
+            'feedback': feedback,
+            'ai_signals': ai_signals,
+            'ai_flagged_sentences': ai_flagged_sentences,
+            'text_words': text_words,
+            'ai_words': ai_words,
+        }
+
+    except requests.exceptions.Timeout:
+        return {
+            'overall_classification': 'Unknown',
+            'ai_percentage': 0,
+            'human_percentage': 0,
+            'ai_polished_percentage': 0,
+            'confidence': 0.0,
+            'overall_verdict': 'Detection timeout: API request took too long',
+            'feedback': 'Error: Request timeout',
+            'ai_signals': [],
+            'ai_flagged_sentences': [],
+            'text_words': 0,
+            'ai_words': 0,
+            'error': True,
+        }
+    except requests.exceptions.HTTPError as e:
+        return {
+            'overall_classification': 'Unknown',
+            'ai_percentage': 0,
+            'human_percentage': 0,
+            'ai_polished_percentage': 0,
+            'confidence': 0.0,
+            'overall_verdict': f'Detection error: {e.response.status_code} - {str(e)}',
+            'feedback': f'Error: {e.response.status_code}',
+            'ai_signals': [],
+            'ai_flagged_sentences': [],
+            'text_words': 0,
+            'ai_words': 0,
+            'error': True,
+        }
+    except Exception as e:
+        return {
+            'overall_classification': 'Unknown',
+            'ai_percentage': 0,
+            'human_percentage': 0,
+            'ai_polished_percentage': 0,
+            'confidence': 0.0,
+            'overall_verdict': f'Detection error: {str(e)}',
+            'feedback': 'Error: Detection failed',
+            'ai_signals': [],
+            'ai_flagged_sentences': [],
+            'text_words': 0,
+            'ai_words': 0,
+            'error': True,
+        }
+
+
+def analyse_answer(question, answer, unit, course_id):
+    """
+    Analyse a single answer for AI-generated content using Zero GPT API.
+
+    Process:
+    1. Use Zero GPT for AI detection
+    2. Apply risk classification and confidence adjustments based on word count
+    3. Return analysis with confidence and signals
+
+    Returns: dict with AI detection analysis
+    """
+    word_count = len(answer.split())
+
+    # Use Zero GPT for detection
+    try:
+        zerogpt_result = detect_with_zerogpt(question, answer, unit, course_id)
+
+        if zerogpt_result.get('error'):
+            return {
+                'overall_classification': 'Unknown',
+                'ai_percentage': 0,
+                'human_percentage': 0,
+                'ai_polished_percentage': 0,
+                'overall_verdict': zerogpt_result.get('overall_verdict', 'Detection error'),
+                'feedback': zerogpt_result.get('feedback', ''),
+                'ai_signals': [],
+                'ai_flagged_sentences': [],
+                'text_words': word_count,
+                'ai_words': 0,
+                'confidence': 0.0,
+                'adjusted_confidence': 0.0,
+                'risk_level': 'Unknown',
+                'word_count': word_count,
+                'low_confidence_flag': word_count < 50,
+                'confidence_note': '⚠️ Low confidence (short answer < 50 words)' if word_count < 50 else '',
+                'error': True,
+            }
+
+        # Get base confidence from Zero GPT result
+        base_confidence = zerogpt_result.get('confidence', 0.5)
+
+        # Apply confidence adjustment based on word count
+        if word_count < 50:
+            adjusted_confidence = round(base_confidence * 0.7, 3)
+            low_confidence_flag = True
+            confidence_note = '⚠️ Low confidence (short answer < 50 words)'
+        else:
+            adjusted_confidence = base_confidence
+            low_confidence_flag = False
+            confidence_note = ''
+
+        # Determine risk level based on feedback-based classification
+        classification = zerogpt_result.get('overall_classification', 'Unknown')
+        if classification == 'AI':
+            risk_level = 'High'
+        elif classification == 'Mixed':
+            risk_level = 'Medium'
+        elif classification == 'Human':
+            risk_level = 'Human'
+        else:
+            risk_level = 'Unknown'
+
+        ai_pct = zerogpt_result.get('ai_percentage', 0)
+
+        return {
+            'overall_classification': classification,
+            'ai_percentage': ai_pct,
+            'human_percentage': zerogpt_result.get('human_percentage', 100 - ai_pct),
+            'ai_polished_percentage': zerogpt_result.get('ai_polished_percentage', 0),
+            'overall_verdict': zerogpt_result.get('overall_verdict', ''),
+            'feedback': zerogpt_result.get('feedback', ''),
+            'ai_signals': zerogpt_result.get('ai_signals', []),
+            'ai_flagged_sentences': zerogpt_result.get('ai_flagged_sentences', []),
+            'text_words': zerogpt_result.get('text_words', word_count),
+            'ai_words': zerogpt_result.get('ai_words', 0),
+            'confidence': base_confidence,
+            'adjusted_confidence': adjusted_confidence,
+            'risk_level': risk_level,
+            'word_count': word_count,
+            'low_confidence_flag': low_confidence_flag,
+            'confidence_note': confidence_note,
+        }
+
+    except Exception as e:
+        return {
+            'overall_classification': 'Unknown',
+            'ai_percentage': 0,
+            'human_percentage': 0,
+            'ai_polished_percentage': 0,
+            'overall_verdict': f'Analysis unavailable: {str(e)}',
+            'feedback': 'Error during analysis',
+            'ai_signals': [],
+            'ai_flagged_sentences': [],
+            'text_words': word_count,
+            'ai_words': 0,
+            'confidence': 0.0,
+            'adjusted_confidence': 0.0,
+            'risk_level': 'Unknown',
+            'word_count': word_count,
+            'low_confidence_flag': word_count < 50,
+            'confidence_note': '⚠️ Low confidence (short answer < 50 words)' if word_count < 50 else '',
+            'error': True,
+        }
+
+
+# ── FLASK ROUTES ───────────────────────────────────────────────────────────────
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/courses', methods=['GET'])
+def get_courses():
+    """Return available courses for UI selection."""
+    courses = []
+    for course_id, course_data in COURSES_CONFIG['courses'].items():
+        courses.append({
+            'id': course_id,
+            'name': course_data['name'],
+        })
+    return jsonify({'courses': courses})
+
+
+def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown'):
+    """Generator that yields analysis results as newline-delimited JSON."""
+    gpt_calls = 0
+    results = []
+    session_id = secrets.token_urlsafe(16)  # Generate session ID for PDF storage
+
+    # Send start event
+    yield json.dumps({
+        'type': 'start',
+        'total': len(answers),
+        'course': course_id,
+        'course_name': COURSES_CONFIG['courses'][course_id]['name'],
+        'filename': filename,
+        'session_id': session_id,
+    }) + '\n'
+
+    # Analyze each answer and stream results
+    for idx, a in enumerate(answers, 1):
+        detection = analyse_answer(a['question'], a['answer'], a['unit'], course_id)
+
+        gpt_calls += 1
+
+        result = {
+            'unit': a['unit'],
+            'question': a['question'],
+            'answer_preview': a['answer'][:300] + ('...' if len(a['answer']) > 300 else ''),
+            'answer_full': a['answer'],
+            'word_count': len(a['answer'].split()),
+            **detection,
+        }
+        results.append(result)
+
+        # Stream the individual result
+        yield json.dumps({
+            'type': 'answer',
+            'index': idx,
+            'total': len(answers),
+            'result': result,
+        }) + '\n'
+    
+    # Sort results by AI percentage for final summary
+    results.sort(key=lambda x: x.get('ai_percentage', 0), reverse=True)
+
+    # Calculate summary statistics based on classifications
+    ai_count = sum(1 for r in results if r.get('overall_classification') == 'AI')
+    ai_polished_count = sum(1 for r in results if r.get('overall_classification') == 'AI Polished')
+    human_count = sum(1 for r in results if r.get('overall_classification') == 'Human')
+
+    # Calculate average percentages
+    avg_ai_pct = round(sum(r.get('ai_percentage', 0) for r in results) / len(results)) if results else 0
+    avg_ai_polished_pct = 0  # Simplified display: always 0 in new system
+    avg_human_pct = round(sum(r.get('human_percentage', 0) for r in results) / len(results)) if results else 0
+
+    # ── PORTFOLIO-LEVEL SCORING ────────────────────────────────────────────────
+    # Calculate portfolio metrics with confidence adjustment for short answers
+    portfolio_score = round(avg_ai_pct, 2)
+
+    # Count short answers
+    short_answer_count = sum(1 for r in results if r.get('low_confidence_flag', False))
+    short_answer_pct = round((short_answer_count / len(results)) * 100, 1) if results else 0
+
+    # Calculate portfolio confidence (average of adjusted confidences)
+    portfolio_confidence = sum(r.get('adjusted_confidence', 0.5) for r in results) / len(results) if results else 0.5
+
+    # Apply additional confidence penalty if many short answers (>10%)
+    quality_note = ""
+    if short_answer_pct > 10:
+        quality_note = f"Multiple short answers detected ({short_answer_count} answers < 50 words). Overall confidence may be lower due to limited text for analysis."
+        portfolio_confidence = portfolio_confidence * 0.85  # Additional 15% confidence reduction
+
+    portfolio_confidence = round(portfolio_confidence, 3)
+
+    # Classify portfolio risk based on portfolio score
+    if portfolio_score >= 65:
+        portfolio_risk = 'High'
+    elif portfolio_score >= 35:
+        portfolio_risk = 'Medium'
+    elif portfolio_score >= 20:
+        portfolio_risk = 'Low'
+    else:
+        portfolio_risk = 'Human'
+
+    # Risk breakdown by level
+    risk_breakdown = {
+        'high': sum(1 for r in results if r.get('risk_level') == 'High'),
+        'medium': sum(1 for r in results if r.get('risk_level') == 'Medium'),
+        'low': sum(1 for r in results if r.get('risk_level') == 'Low'),
+        'human': sum(1 for r in results if r.get('risk_level') == 'Human'),
+    }
+
+    # Store analysis in session for PDF download
+    # Include all fields needed for comprehensive PDF report
+    pdf_results = []
+    for r in results:
+        pdf_results.append({
+            'unit': r.get('unit'),
+            'question': r.get('question'),
+            'ai_percentage': r.get('ai_percentage'),
+            'overall_classification': r.get('overall_classification'),
+            'feedback': r.get('feedback', 'No feedback available'),
+            'answer_full': r.get('answer_full', ''),  # Full answer text
+            'overall_verdict': r.get('overall_verdict', ''),
+            'low_confidence_flag': r.get('low_confidence_flag'),
+        })
+
+    # Determine overall risk category based on classification distribution (backward compatibility)
+    if ai_count >= 2 or avg_ai_pct >= 65:
+        overall_risk = 'high'
+    elif ai_count >= 1 or ai_polished_count >= 3 or avg_ai_pct >= 40:
+        overall_risk = 'medium'
+    elif avg_ai_pct >= 20:
+        overall_risk = 'low'
+    else:
+        overall_risk = 'unlikely'
+
+    # Store analysis in session for PDF download (using a simple in-memory store)
+    if not hasattr(generate_analysis_stream, 'analysis_cache'):
+        generate_analysis_stream.analysis_cache = {}
+
+    analysis_for_pdf = {
+        'results': pdf_results,
+        'learner_name': learner_name,
+        'course_name': COURSES_CONFIG['courses'][course_id]['name'],
+        'summary': {
+            'total_answers': len(results),
+            'ai_count': ai_count,
+            'ai_polished_count': ai_polished_count,
+            'human_count': human_count,
+            'avg_ai_percentage': avg_ai_pct,
+            'portfolio_score': portfolio_score,
+            'portfolio_confidence': portfolio_confidence,
+            'portfolio_risk': portfolio_risk,
+            'short_answer_count': short_answer_count,
+            'short_answer_pct': short_answer_pct,
+            'quality_note': quality_note,
+            'risk_breakdown': risk_breakdown,
+        }
+    }
+    generate_analysis_stream.analysis_cache[session_id] = analysis_for_pdf
+
+    # Send summary event
+    yield json.dumps({
+        'type': 'summary',
+        'summary': {
+            'total_answers': len(results),
+            'ai_count': ai_count,
+            'ai_polished_count': ai_polished_count,
+            'human_count': human_count,
+            'avg_ai_percentage': avg_ai_pct,
+            'avg_ai_polished_percentage': avg_ai_polished_pct,
+            'avg_human_percentage': avg_human_pct,
+            'overall_risk': overall_risk,
+            # NEW: Portfolio-level scoring
+            'portfolio_score': portfolio_score,
+            'portfolio_confidence': portfolio_confidence,
+            'portfolio_risk': portfolio_risk,
+            'short_answer_count': short_answer_count,
+            'short_answer_pct': short_answer_pct,
+            'quality_note': quality_note,
+            'risk_breakdown': risk_breakdown,
+        },
+        'zerogpt_calls': gpt_calls,
+        'session_id': session_id,
+    }) + '\n'
+
+
+@app.route('/analyse', methods=['POST'])
+def analyse():
+    """Main analysis endpoint with streaming responses."""
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'error': 'No file selected'}), 400
+
+    if not file.filename.lower().endswith('.pdf'):
+        return jsonify({'error': 'Please upload a PDF file'}), 400
+
+    # Get course parameter (default to level2_gym for backwards compatibility)
+    course_id = request.form.get('course', 'level2_gym')
+    learner_name = request.form.get('learner_name', 'Unknown')
+
+    if course_id not in COURSES_CONFIG['courses']:
+        return jsonify({'error': f'Unknown course: {course_id}'}), 400
+
+    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+        file.save(tmp.name)
+        tmp_path = tmp.name
+
+    try:
+        # Extract answers
+        answers = extract_answers_from_pdf(tmp_path, course_id)
+        used_fallback = False
+
+        if not answers:
+            answers = extract_answers_fallback(tmp_path)
+            used_fallback = True
+
+        if not answers:
+            return jsonify({
+                'error': 'No learner answers found. This may be a blank or scanned workbook.',
+                'is_blank': True,
+            }), 200
+
+        # Stream analysis results
+        return Response(
+            generate_analysis_stream(answers, course_id, file.filename, learner_name),
+            mimetype='application/x-ndjson'
+        )
+
+    except Exception as e:
+        return jsonify({'error': f'Failed to process workbook: {str(e)}'}), 500
+    finally:
+        os.unlink(tmp_path)
+
+
+@app.route('/download-report/<session_id>', methods=['GET'])
+def download_report(session_id):
+    """Download PDF report for analysis results."""
+    try:
+        from analysis.pdf_generator import generate_pdf_report
+
+        # Retrieve analysis from cache
+        analysis_cache = getattr(generate_analysis_stream, 'analysis_cache', {})
+        analysis_data = analysis_cache.get(session_id)
+
+        if not analysis_data:
+            return jsonify({'error': 'No analysis data found for this session. The analysis may have expired.'}), 404
+
+        # Generate PDF
+        pdf_bytes = generate_pdf_report(analysis_data)
+
+        # Clean up cache entry after download
+        if session_id in analysis_cache:
+            del analysis_cache[session_id]
+
+        # Generate dynamic filename: "{Learner Name}_{Course Name}_AI Report.pdf"
+        learner = analysis_data.get('learner_name', 'Learner')
+        course = analysis_data.get('course_name', 'Course')
+        safe_name = re.sub(r'[^\w\s\-]', '', f"{learner}_{course}_AI Report").strip()
+        safe_name = re.sub(r'\s+', ' ', safe_name)
+        filename = f"{safe_name}.pdf"
+
+        # Return PDF as download
+        return Response(
+            pdf_bytes,
+            mimetype='application/pdf',
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"'
+            }
+        )
+
+    except ImportError as e:
+        return jsonify({'error': f'PDF generation not available. Please install reportlab. Error: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Failed to generate PDF: {str(e)}'}), 500
+
+
+@app.errorhandler(500)
+def handle_500(e):
+    """Handle server errors gracefully."""
+    return jsonify({'error': 'Internal server error'}), 500
+
+
+if __name__ == '__main__':
+    port = int(os.getenv('PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)

@@ -1,0 +1,124 @@
+{
+  "courses": {
+    "level2_gym": {
+      "name": "Level 2 Gym Instructing",
+      "units": {
+        "unit2": {
+          "label": "Unit 2 – Health & Safety",
+          "fields": {
+            "Text Field 570": "1. Identify the types of emergencies occurring at FlexFit Gym & emergency services",
+            "Text Field 802": "2. Describe the roles of different staff members and external services in emergencies",
+            "Text Field 803": "3. Explain the importance of calmly following emergency procedures",
+            "Text Field 805": "4. Describe how to maintain safety of different groups during emergencies",
+            "Text Field 603": "5. Explain why health and safety is important in a fitness environment",
+            "Text Field 604": "6. Identify UK law and regulatory requirements for health and safety",
+            "Text Field 605": "7. Explain Duty of Care and how it relates to special population groups",
+            "Text Field 606": "8. Identify who is responsible for health and safety within a fitness organisation",
+            "Text Field 607": "9. Describe the security procedures that apply in a fitness environment",
+            "Text Field 608": "10. Identify key health and safety documents and how they maintain safety standards",
+            "Text Field 6010": "11. Describe routine maintenance and cleaning tasks",
+            "Text Field 6011": "12. Describe UK regulations for cleaning and maintenance",
+            "Text Field 6012": "13. Identify cleaning products, PPE requirements and safe storage",
+            "Text Field 6033": "14. Describe how to maintain hygiene and safety standards",
+            "Text Field 577": "15. Identify the hazards in the scenario 3",
+            "Text Field 809": "16. Identify who might be harmed by gym hazards and how",
+            "Text Field 8011": "17. Evaluate the risks and decide on precautions",
+            "Text Field 8013": "18. Describe how to record findings and implement them",
+            "Text Field 8014": "19. Explain how to review and update risk assessment",
+            "Text Field 583": "20. Describe two types of abuse and identify signs of abuse",
+            "Text Field 810": "21. Outline safeguarding responsibilities, procedures and limitations",
+            "Text Field 811": "22. Explain how to protect yourself from accusations of abuse",
+            "Text Field 812": "23. Describe key agencies responsible for safeguarding"
+          }
+        },
+        "unit4": {
+          "label": "Unit 4 – Client Lifestyle",
+          "fields": {
+            "Text Field 5013": "1. Explain why forming effective professional relationships with gym members like Sarah are important. What communication skills and strategies/techniques can assist Sarah with her motivation?",
+            "Text Field 5014": "2. Explain the significance of positively presenting yourself and the organisation to clients like Sarah. How does adapting your communication styles contribute to effective communication with members? What specific strategies can be used to adapt your communication?",
+            "Text Field 5015": "3. Explain factors underpinning effective professional relationship",
+            "Text Field 5017": "4. Identify barriers to exercise and describe incentives and strategies",
+            "Text Field 5018": "5. Explain importance of incorporating exercise preferences",
+            "Text Field 5020": "6. Explain importance of personal responsibility for fitness",
+            "Text Field 5051": "7. Identify strategies to help client stay motivated and committed",
+            "Text Field 5022": "8. Identify behaviour change approaches to encourage adherence",
+            "Text Field 5053": "9. Identify where to source relevant evidence-based information",
+            "Text Field 5052": "10. Identify IT tools that can help members engage and support adherence",
+            "Text Field 5024": "11. SMART Long-term goal – Specific",
+            "Text Field 5026": "11. SMART Long-term goal – Measurable",
+            "Text Field 5028": "11. SMART Long-term goal – Attainable",
+            "Text Field 5029": "11. SMART Long-term goal – Relevant",
+            "Text Field 5030": "11. SMART Long-term goal – Timed",
+            "Text Field 5031": "11. SMART Medium-term goal – Specific",
+            "Text Field 5032": "11. SMART Medium-term goal – Measurable",
+            "Text Field 5033": "11. SMART Medium-term goal – Attainable",
+            "Text Field 5034": "11. SMART Medium-term goal – Relevant",
+            "Text Field 5035": "11. SMART Medium-term goal – Timed",
+            "Text Field 5036": "11. SMART Short-term goal – Specific",
+            "Text Field 5037": "11. SMART Short-term goal – Measurable",
+            "Text Field 5038": "11. SMART Short-term goal – Attainable",
+            "Text Field 5039": "11. SMART Short-term goal – Relevant",
+            "Text Field 5040": "11. SMART Short-term goal – Timed",
+            "Text Field 525": "12. Explain the importance of the feedback cycle in customer service",
+            "Text Field 778": "13. Based on the feedback cycle, describe the steps FlexFit Gym should take to refine and improve its digital system using members' feedback",
+            "Text Field 779": "14. Given the varied preferences and tech skills of FlexFit's members, how can the club ensure its digital and traditional services cater to all",
+            "Text Field 780": "15. Explain why is handling customer complaints important for providing ongoing customer service at FlexFit Gym",
+            "Text Field 530": "17. Identify TWO basic expectations of customers (PART ONE)",
+            "Text Field 790": "17. Identify TWO basic expectations of customers (PART TWO)",
+            "Text Field 533": "18. Describe how to engage with customer types to build rapport",
+            "Text Field 544": "19. Outline Megan's customer journey",
+            "Text Field 791": "20. Identify factors from Megan's journey influencing gym decision",
+            "Text Field 792": "21. How FlexFit personalised experience for Megan",
+            "Text Field 793": "22. What were Megan's initial expectations",
+            "Text Field 794": "23. How gym met Megan's aspirations and exceeded expectations",
+            "Text Field 795": "24. Describe techniques used by FlexFit to establish rapport",
+            "Text Field 1105": "25. Using Trust Pilot Review, identify expectations of reviewer",
+            "Text Field 1104": "26. Explain how FlexFit can rebuild rapport with reviewer",
+            "Text Field 1103": "27. Describe steps FlexFit should take in response to negative review",
+            "Text Field 797": "28. Describe why customer feedback is essential for member retention",
+            "Text Field 555": "29. Dealing with Customer Complaints - CARES Scenario response",
+            "Text Field 557": "30. Identify professional behaviours exhibited by Max",
+            "Text Field 798": "31. Identify unprofessional behaviours displayed by Leo",
+            "Text Field 799": "32. What is the Fitness Code of Ethical Conduct and its principles",
+            "Text Field 800": "33. Explain CIMSPA and their role in the fitness industry",
+            "Text Field 801": "34. Define equality and diversity and explain their importance"
+          }
+        },
+        "unit5": {
+          "label": "Unit 5 – Planning & Consultation",
+          "fields": {
+            "Text Field 1014": "1. What health and safety checks would you do before starting session",
+            "Text Field 1015": "2. What resources do you need to prepare for your session",
+            "Text Field 1016": "3. What additional advice could you offer client to prepare",
+            "Condultation_Q_11": "Consultation: How often can your client participate in exercise",
+            "Condultation_Q_14": "Consultation: What are the main barriers to client achieving goal",
+            "Condultation_Q_16": "Consultation: Client's main outcome goal (long term 6-12 months)",
+            "Condultation_Q_17": "Consultation: Describe client's current activity levels",
+            "Condultation_Q_18": "Consultation: Describe client's gym experience and training age",
+            "Condultation_Q_19": "Consultation: What activities or equipment client likes/dislikes",
+            "Condultation_Q_20": "Consultation: Create SMART training goal based on outcome goal"
+          }
+        },
+        "unit5b": {
+          "label": "Unit 5b – Session Planning",
+          "fields": {
+            "FW17": "Session plan 1: Foremost precaution for young people in gym session",
+            "FW69": "Session plan 2: ACSM guidelines for pregnant individuals and adaptations",
+            "Text Field 5027": "Session plan 3: Adapt gym exercises for individuals with disabilities",
+            "Text Field 725": "Session plan 4: Modify gym exercises for elderly individuals"
+          }
+        },
+        "unit6": {
+          "label": "Unit 6 – Self-Evaluation",
+          "fields": {
+            "Text Field 762": "Session Self Evaluation: How well did exercises meet client's needs",
+            "Text Field 763": "Session Self Evaluation: How effective was relationship with client",
+            "Text Field 764": "Session Self Evaluation: How well did instructing style match client needs",
+            "Text Field 765": "Session Self Evaluation: How do you intend to improve your practice",
+            "Text Field 766": "Session Self Evaluation: Explain the value of reflective practice"
+          }
+        }
+      }
+    }
+  }
+}
