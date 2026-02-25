@@ -63,6 +63,101 @@ TRUNCATED_FIELD_MAP = {"xt Field 802": "Text Field 802"}
 # Pattern to skip non-text fields
 MCQ_VALUE_PATTERN = re.compile(r'^/\d+$|^/Choice\d+$|^/Off$|^/Yes$|^/No$')
 
+# ── PDF APPEARANCE STREAM EXTRACTION ───────────────────────────────────────────
+
+def _decode_pdf_string(raw_bytes):
+    """Decode a PDF string literal's raw bytes, handling octal and standard escapes."""
+    result = []
+    i = 0
+    while i < len(raw_bytes):
+        b = raw_bytes[i]
+        if b == ord('\\'):
+            i += 1
+            if i >= len(raw_bytes):
+                break
+            c = raw_bytes[i]
+            if c == ord('n'):
+                result.append('\n')
+            elif c == ord('r'):
+                result.append('\n')
+            elif c == ord('t'):
+                result.append('\t')
+            elif c in (ord('('), ord(')'), ord('\\')):
+                result.append(chr(c))
+            elif chr(c).isdigit():
+                # Octal escape e.g. \050 = '('
+                octal = chr(c)
+                for _ in range(2):
+                    i += 1
+                    if i < len(raw_bytes) and chr(raw_bytes[i]).isdigit():
+                        octal += chr(raw_bytes[i])
+                    else:
+                        i -= 1
+                        break
+                result.append(chr(int(octal, 8)))
+            else:
+                result.append(chr(c))
+        elif b == ord('\r'):
+            result.append('\n')
+        else:
+            result.append(raw_bytes[i:i+1].decode('latin-1', errors='replace'))
+        i += 1
+    return ''.join(result)
+
+
+def _extract_ap_text(widget_obj):
+    """Extract visible text from a widget's /AP/N appearance stream.
+
+    Some PDFs save the displayed text only in the appearance stream, leaving
+    the /V field value empty. This is the fallback for those cases.
+    """
+    try:
+        ap = widget_obj.get('/AP')
+        if not ap:
+            return None
+        n = ap.get_object().get('/N')
+        if not n:
+            return None
+        data = n.get_object().get_data()
+        parts = []
+        pat = re.compile(rb'\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*[Tj\'"]', re.DOTALL)
+        for m in pat.finditer(data):
+            text = _decode_pdf_string(m.group(1))
+            if text.strip():
+                parts.append(text)
+        # Also handle TJ array form: [(string) ...] TJ
+        for m in re.finditer(rb'\[([^\]]*)\]\s*TJ', data, re.DOTALL):
+            for sm in re.finditer(rb'\(([^)\\]*(?:\\.[^)\\]*)*)\)', m.group(1), re.DOTALL):
+                text = _decode_pdf_string(sm.group(1))
+                if text.strip():
+                    parts.append(text)
+        text = ' '.join(parts).strip()
+        return text if text else None
+    except Exception:
+        return None
+
+
+def _build_widget_map(reader):
+    """Build a field-name -> widget object map by scanning all page annotations.
+
+    Required for AP stream fallback — get_fields() doesn't expose /AP directly.
+    """
+    widgets = {}
+    for page in reader.pages:
+        if '/Annots' not in page:
+            continue
+        for annot in page['/Annots']:
+            try:
+                obj = annot.get_object()
+                if obj.get('/Subtype') == '/Widget':
+                    name = str(obj.get('/T', ''))
+                    if name and name not in widgets:
+                        widgets[name] = obj
+            except Exception:
+                pass
+    return widgets
+
+
 # ── PDF EXTRACTION ─────────────────────────────────────────────────────────────
 
 def extract_answers_from_pdf(pdf_path, course_id='level2_gym'):
@@ -71,6 +166,8 @@ def extract_answers_from_pdf(pdf_path, course_id='level2_gym'):
     fields = reader.get_fields()
     if not fields:
         return []
+
+    widget_map = _build_widget_map(reader)
 
     answers = []
     for raw_name, field in fields.items():
@@ -86,10 +183,16 @@ def extract_answers_from_pdf(pdf_path, course_id='level2_gym'):
             continue
 
         value = field.get('/V', '')
-        if not value:
-            continue
+        value_str = str(value).strip() if value else ''
 
-        value_str = str(value).strip()
+        # Fall back to appearance stream when /V is empty (PDF saved without updating value)
+        if not value_str or MCQ_VALUE_PATTERN.match(value_str):
+            widget_obj = widget_map.get(name)
+            if widget_obj:
+                ap_text = _extract_ap_text(widget_obj)
+                if ap_text:
+                    value_str = ap_text
+
         if not value_str or MCQ_VALUE_PATTERN.match(value_str):
             continue
 

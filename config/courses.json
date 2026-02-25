@@ -119,6 +119,127 @@
           }
         }
       }
+    },
+    "level3_pt": {
+      "name": "Level 3 Personal Training (V3 Portfolio)",
+      "units": {
+        "unit7b": {
+          "label": "Unit 7b – Nutrition Case Study",
+          "fields": {
+            "M4 NC Q2": "1. Client's reasons/motivations for wanting to achieve their desired outcome goal",
+            "M4 NC Q3": "2. Challenges or barriers client has faced in trying to improve eating habits",
+            "M4 NC Q7": "3. Time available for meal prep and cooking preferences or restrictions",
+            "M4 NC Q8": "4. Specific foods to include or avoid (personal preferences, health or cultural reasons)",
+            "M4 NC Q9": "5. Regular consumption of alcohol, caffeine, or sugary beverages",
+            "M4 NC Q10": "6. Frequency of eating out or ordering takeout and reasons",
+            "M4 NC Q11": "7. Supplements or medications that may affect diet",
+            "NC Recommndations 2": "Nutritional analysis: Summary of client's eating habits vs healthy eating guidelines and dietary recommendations"
+          }
+        },
+        "unit8a": {
+          "label": "Unit 8a – Planning Exercise Programme Design",
+          "fields": {
+            "Unit_2_Q_20": "2. Explain why it is important for clients to understand the advantages of personal training",
+            "Unit_2_Q_25": "3. Explain why it is important for a PT to work together with clients to agree goals, objectives, programmes and adaptations",
+            "Unit_2_Q_27": "4. Explain the importance of developing client rapport",
+            "Unit_2_Q_22": "5. Describe a psychological factor which could affect willingness to change habits and behaviours",
+            "Unit_2_Q_29": "6. Explain the importance of long-term behaviour change in developing client fitness",
+            "Unit_2_Q_30": "7. Explain how to ensure clients commit themselves to long-term change",
+            "Unit_2_Q_21": "8. Identify several strategies to increase client motivation to assist behaviour change",
+            "Unit_2_Q_26": "9. Explain the principles of informed consent before collecting client information",
+            "Unit_2_Q_28": "10. Explain why informed consent should be obtained before collecting information for a PT programme",
+            "Unit_2_Q_24": "11. Purpose of motivational interviewing and how to create a motivational environment for client communications",
+            "Unit_2_Q_32": "12. Explain how to select the most appropriate methods of collecting client information according to client need",
+            "Unit_2_Q_34": "13. Identify factors that may affect the validity and reliability of client assessment data",
+            "Unit_2_Q_23": "14. Identify the legal and ethical implications of collecting client information, including confidentiality",
+            "Unit_2_Q_31": "15. Identify the risks and benefits of exercise for those with medically controlled conditions",
+            "Unit_2_Q_33": "16. Identify when it might be appropriate to share the programme with other professionals",
+            "Unit_2_Q_36": "17. Explain the key principles of designing programmes to achieve short, medium and long-term goals",
+            "Unit_2_Q_38": "18. Identify modifiable and non-modifiable health, fitness and lifestyle factors which increase risk of commonly occurring diseases",
+            "Unit_2_Q_40": "19. Explain how to use risk stratification tools based upon client observations and data collection",
+            "Unit_2_Q_35": "20. How do common medically controlled diseases affect the nation, and how may they impact on a client's lifestyle"
+          }
+        },
+        "unit8b": {
+          "label": "Unit 8b – PT Case Study (One-to-One Programme)",
+          "fields": {
+            "M4 PTC Q2": "Consultation: Client's goals and what motivates them to achieve their desired outcomes",
+            "M4 PTC Q3": "Consultation: Client's current activity levels (ADL, sports and occupational activities)",
+            "M4 PTC Q4": "Consultation: Barriers (if any) the client is facing in achieving their goal",
+            "M4 PTC Q5": "Consultation: How often in the week can your client participate in regular exercise",
+            "M4 PTC Q6": "Consultation: Client's gym equipment preferences and training background (including training age)",
+            "SMART GOAL SEETING 2": "SMART Goal: Long-Term Goal (7–12 months)",
+            "SMART GOAL SEETING 3": "SMART Goal: Mid-Term Goal (4–6 months)",
+            "SMART GOAL SEETING 4": "SMART Goal: Short-Term Goal (1–3 months)",
+            "M4 Def of ARST 2": "Weeks 1–2: Definition of Advanced Resistance Training System used",
+            "M4 CV Definition 2": "Weeks 1–2: Definition of Cardiovascular Training Method",
+            "M4 ARTS 2": "Weeks 1–2: Advanced Resistance Training exercises and systems",
+            "M4 CV Method 2": "Weeks 1–2: Cardiovascular method description and justification",
+            "M4 Def of ARST 3": "Weeks 3–4: Definition of Advanced Resistance Training System used",
+            "M4 CV Definition 3": "Weeks 3–4: Definition of Cardiovascular Training Method",
+            "M4 ARTS 3": "Weeks 3–4: Advanced Resistance Training exercises and systems",
+            "M4 CV Method 3": "Weeks 3–4: Cardiovascular method description and justification",
+            "M4 Def of ARST 4": "Weeks 5–6: Definition of Advanced Resistance Training System used",
+            "M4 CV Definition 4": "Weeks 5–6: Definition of Cardiovascular Training Method",
+            "M4 ARTS 4": "Weeks 5–6: Advanced Resistance Training exercises and systems",
+            "M4 CV Method 4": "Weeks 5–6: Cardiovascular method description and justification",
+            "M4 Def of ARST 5": "Weeks 7–8: Definition of Advanced Resistance Training System used",
+            "M4 CV Definition 5": "Weeks 7–8: Definition of Cardiovascular Training Method",
+            "M4 ARTS 5": "Weeks 7–8: Advanced Resistance Training exercises and systems",
+            "M4 CV Method 5": "Weeks 7–8: Cardiovascular method description and justification",
+            "Review feedback 2": "Case Study Review: Concise assessment of your approach with your client",
+            "Review feedback 3": "Case Study Review: Summary of progress made toward client's goals so far",
+            "Review feedback 4": "Case Study Review: Reasons behind the results achieved to date"
+          }
+        },
+        "unit8c": {
+          "label": "Unit 8c – Small Group PT in Alternative Environment",
+          "fields": {
+            "Text Field 6040": "Safety checks (environment and client) for small group PT session",
+            "Text Field 6041": "Resources needed for the small group PT session",
+            "Text Field 971": "Warm-up: Notes and description of how exercises/movements will be led",
+            "Text Field 30326": "Main session: Notes and description of how exercises will be demonstrated and coached",
+            "Text Field 972": "Cool down: Notes and description of how exercises will be demonstrated and coached"
+          }
+        },
+        "unit9b": {
+          "label": "Unit 9b – Session Self-Evaluation",
+          "fields": {
+            "Text Field 1097": "Session Self-Evaluation: How well did the exercises meet your client's needs",
+            "Text Field 1098": "Session Self-Evaluation: How effective and motivational was the relationship with your client",
+            "Text Field 1099": "Session Self-Evaluation: How well did your instructing style match the client's needs",
+            "Text Field 1100": "Session Self-Evaluation: How do you intend to improve your personal practice",
+            "Text Field 1101": "Session Self-Evaluation: Explain the value of reflective practice"
+          }
+        },
+        "unit10": {
+          "label": "Unit 10 – Business Acumen & IT for PT",
+          "fields": {
+            "M1 IT Q2": "1. Identify software applications or apps and explain how they could help a PT's business and client management",
+            "M1 IT Q3": "2. Explain how using social media and IT impacts established and new start-up businesses",
+            "M2 Products Q2": "3. Explain what services and products your PT business will offer to clients; assign appropriate pricing and consider secondary spend opportunities",
+            "M2 Products Q3": "4. Describe your primary target customers for your personal training business",
+            "M2 Products Q4": "5. What will you name your personal training business",
+            "M2 Products Q5": "6. What reasons or factors prompt your customers to purchase your product or service",
+            "M2 Products Q6": "7. Write a short and compelling elevator pitch that summarises your business proposition and value to customers",
+            "M3 Marketing Q2": "8. Explain the term 'marketing' and describe its importance for a personal training business",
+            "M3 Marketing Q3": "9. Create a marketing plan and outline two marketing strategies that leverage your strengths and opportunities",
+            "M3 Marketing Q4": "10. Describe the differences between primary and secondary market research and outline 2 examples",
+            "M3 Marketing Q5": "11. Identify your niche and unique value proposition to set your personal training business apart",
+            "M3 Marketing Q6": "12. SWOT Analysis – Business Strengths",
+            "M3 Marketing Q7": "12. SWOT Analysis – Business Weaknesses",
+            "M3 Marketing Q8": "12. SWOT Analysis – Business Opportunities",
+            "M3 Marketing Q9": "12. SWOT Analysis – Business Threats",
+            "M5 Financial Forecasting 3": "13. Create an outline for a digital and social media plan for your PT business",
+            "M5 Financial Forecasting 4": "14. Create a professional social media page and provide the link for your PT business",
+            "M5 Financial Forecasting 2": "15. Outline a financial forecast and explain why it is essential for a new business venture",
+            "M5 Start up costs 2": "16. Identify 5 key start-up costs you expect when launching your PT business (including estimated amounts)",
+            "M5 Exec Summary Q2": "17. Outline a business summary including services, target market, competitive advantages, operations model and growth plans",
+            "M5 Exefc Summary Q4": "19. Provide a financial summary including start-up costs, expected revenue streams, profit margins, projected breakeven point and capital requirements",
+            "M5 Exefc Summary Q5": "18. Identify your key short-term and long-term goals for your PT business over the next 1–2 years"
+          }
+        }
+      }
     }
   }
 }
