@@ -9,6 +9,7 @@ services:
       - traefik.http.routers.ai-detector.entrypoints=web,websecure
       - traefik.http.routers.ai-detector.tls.certresolver=mytlschallenge
       - traefik.http.services.ai-detector.loadbalancer.server.port=5001
+      - traefik.http.services.ai-detector.loadbalancer.responseforwarding.flushinterval=-1
     environment:
       - ZEROGPT_API_KEY=${ZEROGPT_API_KEY}
       - PORT=5001
