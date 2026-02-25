@@ -2,8 +2,19 @@ services:
   ai-detector:
     build: .
     restart: always
-    ports:
-      - "5001:5001"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.ai-detector.rule=Host(`ptacademyaidetector.cloud`)
+      - traefik.http.routers.ai-detector.tls=true
+      - traefik.http.routers.ai-detector.entrypoints=web,websecure
+      - traefik.http.routers.ai-detector.tls.certresolver=mytlschallenge
+      - traefik.http.services.ai-detector.loadbalancer.server.port=5001
     environment:
       - ZEROGPT_API_KEY=${ZEROGPT_API_KEY}
       - PORT=5001
+    networks:
+      - n8n_default
+
+networks:
+  n8n_default:
+    external: true
