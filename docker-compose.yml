@@ -1,0 +1,9 @@
+services:
+  ai-detector:
+    build: .
+    restart: always
+    ports:
+      - "127.0.0.1:5001:5001"
+    environment:
+      - ZEROGPT_API_KEY=${ZEROGPT_API_KEY}
+      - PORT=5001
