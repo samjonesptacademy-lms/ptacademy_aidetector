@@ -47,14 +47,16 @@ def upload_report_to_dropbox(pdf_bytes, learner_name, course_name):
         # Create folder path: /{Course Name}/
         folder_path = f"/{course_name}"
 
-        # Create filename: {Learner Name}_{Course Name}_AI Report.pdf
+        # Create filename: {Learner Name}_{Course Name}_AI Report_{YYYY-MM-DD}.pdf
         # Sanitize filename to remove invalid characters
         import re
+        from datetime import datetime
         safe_learner = re.sub(r'[^\w\s\-]', '', learner_name).strip()
         safe_learner = re.sub(r'\s+', ' ', safe_learner)
         safe_course = re.sub(r'[^\w\s\-]', '', course_name).strip()
         safe_course = re.sub(r'\s+', ' ', safe_course)
-        filename = f"{safe_learner}_{safe_course}_AI Report.pdf"
+        date_str = datetime.now().strftime('%Y-%m-%d')
+        filename = f"{safe_learner}_{safe_course}_AI Report_{date_str}.pdf"
 
         file_path = f"{folder_path}/{filename}"
 

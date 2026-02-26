@@ -796,10 +796,12 @@ def download_report(session_id):
         if session_id in analysis_cache:
             del analysis_cache[session_id]
 
-        # Generate dynamic filename: "{Learner Name}_{Course Name}_AI Report.pdf"
+        # Generate dynamic filename: "{Learner Name}_{Course Name}_AI Report_{YYYY-MM-DD}.pdf"
+        from datetime import datetime
         learner = analysis_data.get('learner_name', 'Learner')
         course = analysis_data.get('course_name', 'Course')
-        safe_name = re.sub(r'[^\w\s\-]', '', f"{learner}_{course}_AI Report").strip()
+        date_str = datetime.now().strftime('%Y-%m-%d')
+        safe_name = re.sub(r'[^\w\s\-]', '', f"{learner}_{course}_AI Report_{date_str}").strip()
         safe_name = re.sub(r'\s+', ' ', safe_name)
         filename = f"{safe_name}.pdf"
 
