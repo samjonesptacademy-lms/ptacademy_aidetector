@@ -44,8 +44,8 @@ def upload_report_to_dropbox(pdf_bytes, learner_name, course_name):
             logger.error(f"Dropbox authentication failed: {e}")
             return {'success': False, 'error': 'Dropbox authentication failed'}
 
-        # Create folder path: /AI Detection Reports/{Course Name}/
-        folder_path = f"/AI Detection Reports/{course_name}"
+        # Create folder path: /{Course Name}/
+        folder_path = f"/{course_name}"
 
         # Create filename: {Learner Name}_{Course Name}_AI Report.pdf
         # Sanitize filename to remove invalid characters
