@@ -17,18 +17,21 @@ jobs:
           virtual-machine: ${{ vars.HOSTINGER_VM_ID }}
 
       - name: Update .env on VPS
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          timeout: 30s
+          command_timeout: 10m
           script: |
             cd /opt/ai-detector
-            cat > .env << 'EOF'
+            cat > .env << 'ENVEOF'
             ZEROGPT_API_KEY=${{ secrets.ZEROGPT_API_KEY }}
             DROPBOX_ACCESS_TOKEN=${{ secrets.DROPBOX_ACCESS_TOKEN }}
             PORT=5001
             FLASK_ENV=production
             FLASK_DEBUG=false
-            EOF
+            ENVEOF
             docker compose restart
