@@ -262,24 +262,41 @@ def detect_with_zerogpt(question, answer, unit, course_id):
     - overall_verdict: Explanation
     - human_signals, ai_signals: Pattern lists
     """
-    try:
-        # Prepare request headers
-        headers = {
-            'ApiKey': ZEROGPT_API_KEY,
-            'Content-Type': 'application/json',
-        }
+    import time
 
-        # Prepare request payload
-        payload = {
-            'input_text': answer
-        }
+    # Retry logic: attempt up to 3 times with delays
+    max_retries = 2
+    retry_delay = 1  # seconds
 
-        # Make API request to Zero GPT
-        response = requests.post(ZEROGPT_ENDPOINT, json=payload, headers=headers, timeout=30)
-        response.raise_for_status()
+    for attempt in range(max_retries + 1):
+        try:
+            # Prepare request headers
+            headers = {
+                'ApiKey': ZEROGPT_API_KEY,
+                'Content-Type': 'application/json',
+            }
 
-        # Parse response
-        response_data = response.json()
+            # Prepare request payload
+            payload = {
+                'input_text': answer
+            }
+
+            # Make API request to Zero GPT (increased timeout to 60s)
+            response = requests.post(ZEROGPT_ENDPOINT, json=payload, headers=headers, timeout=60)
+            response.raise_for_status()
+
+            # Parse response
+            response_data = response.json()
+            break  # Success, exit retry loop
+
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, ValueError) as e:
+            # Timeout, connection error, or JSON parse error - retry
+            if attempt < max_retries:
+                time.sleep(retry_delay)
+                continue
+            else:
+                # All retries exhausted
+                raise
 
         # Extract data from Zero GPT response
         # Zero GPT returns: { "success": true, "data": { "fakePercentage": 0-100, "feedback": "...", ... } }
