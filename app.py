@@ -264,39 +264,40 @@ def detect_with_zerogpt(question, answer, unit, course_id):
     """
     import time
 
-    # Retry logic: attempt up to 3 times with delays
-    max_retries = 2
-    retry_delay = 1  # seconds
+    try:
+        # Retry logic: attempt up to 3 times with delays
+        max_retries = 2
+        retry_delay = 1  # seconds
 
-    for attempt in range(max_retries + 1):
-        try:
-            # Prepare request headers
-            headers = {
-                'ApiKey': ZEROGPT_API_KEY,
-                'Content-Type': 'application/json',
-            }
+        for attempt in range(max_retries + 1):
+            try:
+                # Prepare request headers
+                headers = {
+                    'ApiKey': ZEROGPT_API_KEY,
+                    'Content-Type': 'application/json',
+                }
 
-            # Prepare request payload
-            payload = {
-                'input_text': answer
-            }
+                # Prepare request payload
+                payload = {
+                    'input_text': answer
+                }
 
-            # Make API request to Zero GPT (increased timeout to 60s)
-            response = requests.post(ZEROGPT_ENDPOINT, json=payload, headers=headers, timeout=60)
-            response.raise_for_status()
+                # Make API request to Zero GPT (increased timeout to 60s)
+                response = requests.post(ZEROGPT_ENDPOINT, json=payload, headers=headers, timeout=60)
+                response.raise_for_status()
 
-            # Parse response
-            response_data = response.json()
-            break  # Success, exit retry loop
+                # Parse response
+                response_data = response.json()
+                break  # Success, exit retry loop
 
-        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, ValueError) as e:
-            # Timeout, connection error, or JSON parse error - retry
-            if attempt < max_retries:
-                time.sleep(retry_delay)
-                continue
-            else:
-                # All retries exhausted
-                raise
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, ValueError) as e:
+                # Timeout, connection error, or JSON parse error - retry
+                if attempt < max_retries:
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    # All retries exhausted
+                    raise
 
         # Extract data from Zero GPT response
         # Zero GPT returns: { "success": true, "data": { "fakePercentage": 0-100, "feedback": "...", ... } }
