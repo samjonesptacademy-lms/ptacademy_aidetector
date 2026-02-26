@@ -546,6 +546,23 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/test-email', methods=['GET'])
+def test_email():
+    """Test endpoint to send a test email notification."""
+    try:
+        from analysis.email_notifier import send_error_email
+        success = send_error_email(
+            error_title="Test Email",
+            error_message="This is a test email from the PT Academy AI Detector. If you received this, email notifications are working correctly! ✅"
+        )
+        if success:
+            return jsonify({'message': 'Test email sent successfully!'}), 200
+        else:
+            return jsonify({'error': 'Failed to send test email. Check server logs.'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Error sending test email: {str(e)}'}), 500
+
+
 @app.route('/courses', methods=['GET'])
 def get_courses():
     """Return available courses for UI selection."""
