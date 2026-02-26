@@ -824,7 +824,14 @@ def analyse():
             import traceback
             send_error_email(
                 error_title=type(e).__name__,
-                error_message=f"Failed to process workbook: {str(e)}",
+                error_message=f"""Failed to process workbook:
+
+Learner: {learner_name}
+Assessor: {assessor_name}
+Workbook: {file.filename}
+Course: {course_id}
+
+Error: {str(e)}""",
                 error_traceback=traceback.format_exc()
             )
         except Exception as email_error:
