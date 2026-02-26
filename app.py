@@ -301,13 +301,25 @@ def detect_with_zerogpt(question, answer, unit, course_id):
         # Extract data from Zero GPT response
         # Zero GPT returns: { "success": true, "data": { "fakePercentage": 0-100, "feedback": "...", ... } }
         data = response_data.get('data', {})
-        fake_percentage = data.get('fakePercentage', 0)
+
+        # Validate response - check if data is empty or invalid
+        if not data or not data.get('feedback'):
+            raise ValueError("Empty or invalid response from Zero GPT API")
+
+        # Extract and validate numeric fields (convert empty strings to 0)
+        fake_percentage_raw = data.get('fakePercentage', 0)
+        fake_percentage = float(fake_percentage_raw) if fake_percentage_raw else 0
+
         feedback = data.get('feedback', '')
 
         # Extract AI-flagged sentences (h array)
-        ai_flagged_sentences = data.get('h', [])
-        text_words = data.get('textWords', 0)
-        ai_words = data.get('aiWords', 0)
+        ai_flagged_sentences = data.get('h', []) if data.get('h') else []
+
+        text_words_raw = data.get('textWords', 0)
+        text_words = int(text_words_raw) if text_words_raw else 0
+
+        ai_words_raw = data.get('aiWords', 0)
+        ai_words = int(ai_words_raw) if ai_words_raw else 0
 
         # Simplified display: single AI percentage with binary classification
         ai_percentage = round(fake_percentage, 2)
