@@ -497,6 +497,18 @@ def analyse_answer(question, answer, unit, course_id):
         }
 
 
+# ── CORS FOR CHROME EXTENSION ──────────────────────────────────────────────────
+
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get('Origin', '')
+    if origin.startswith('chrome-extension://'):
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
+
+
 # ── FLASK ROUTES ───────────────────────────────────────────────────────────────
 
 @app.route('/')
@@ -780,6 +792,26 @@ def download_report(session_id):
         return jsonify({'error': f'PDF generation not available. Please install reportlab. Error: {str(e)}'}), 500
     except Exception as e:
         return jsonify({'error': f'Failed to generate PDF: {str(e)}'}), 500
+
+
+@app.route('/analyse-text', methods=['OPTIONS'])
+def analyse_text_preflight():
+    """CORS preflight for Chrome extension."""
+    return '', 204
+
+
+@app.route('/analyse-text', methods=['POST'])
+def analyse_text():
+    """Analyse a single text answer — used by the Chrome extension."""
+    data = request.get_json()
+    text = (data or {}).get('text', '').strip()
+    question = (data or {}).get('question', 'Learner Answer')
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+    if len(text) < 20:
+        return jsonify({'error': 'Text too short to analyse (minimum 20 characters)'}), 400
+    result = analyse_answer(question, text, unit='Learner Submission', course_id='level2_gym')
+    return jsonify(result)
 
 
 @app.errorhandler(500)
