@@ -10,7 +10,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update .env and rebuild on VPS
+      - name: Deploy to Hostinger
+        uses: hostinger/deploy-on-vps@v2
+        with:
+          api-key: ${{ secrets.HOSTINGER_API_KEY }}
+          virtual-machine: ${{ vars.HOSTINGER_VM_ID }}
+
+      - name: Update .env on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -20,13 +26,10 @@ jobs:
           timeout: 30s
           command_timeout: 10m
           script: |
-            cd /docker/ptacademy_aidetector
-            git pull origin main
-            cat > .env << 'ENVEOF'
+            cat > ~/.env << 'ENVEOF'
             ZEROGPT_API_KEY=${{ secrets.ZEROGPT_API_KEY }}
             DROPBOX_ACCESS_TOKEN=${{ secrets.DROPBOX_ACCESS_TOKEN }}
             PORT=5001
             FLASK_ENV=production
             FLASK_DEBUG=false
             ENVEOF
-            docker compose up -d --build
