@@ -14,6 +14,8 @@ services:
       - ZEROGPT_API_KEY=${ZEROGPT_API_KEY}
       - DROPBOX_ACCESS_TOKEN=${DROPBOX_ACCESS_TOKEN}
       - PORT=5001
+      - FLASK_ENV=production
+      - FLASK_DEBUG=false
     networks:
       - n8n_default
 
