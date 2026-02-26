@@ -10,8 +10,11 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# Microsoft Graph API endpoint
-GRAPH_API_URL = "https://graph.microsoft.com/v1.0/me/sendMail"
+# Microsoft Graph API endpoint (using service principal/client credentials flow)
+# For app-only auth, we must specify the user mailbox explicitly
+def get_graph_api_url(email_address):
+    """Get the Graph API endpoint for sending mail from a specific user/mailbox."""
+    return f"https://graph.microsoft.com/v1.0/users/{email_address}/sendMail"
 
 # Get credentials from environment
 AZURE_CLIENT_ID = os.getenv('AZURE_CLIENT_ID')
@@ -101,16 +104,13 @@ def send_error_email(error_title, error_message, error_traceback=''):
                             "address": EMAIL_TO
                         }
                     }
-                ],
-                "from": {
-                    "emailAddress": {
-                        "address": EMAIL_FROM
-                    }
-                }
+                ]
             }
         }
 
-        response = requests.post(GRAPH_API_URL, json=payload, headers=headers, timeout=10)
+        # Use the email address to construct the endpoint (service principal requires explicit mailbox)
+        graph_api_url = get_graph_api_url(EMAIL_FROM)
+        response = requests.post(graph_api_url, json=payload, headers=headers, timeout=10)
 
         if response.status_code == 202:
             logger.info(f"Error email sent to {EMAIL_TO}")
