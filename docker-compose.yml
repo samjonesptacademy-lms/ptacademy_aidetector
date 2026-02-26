@@ -11,7 +11,7 @@ services:
       - traefik.http.services.ai-detector.loadbalancer.server.port=5001
       - traefik.http.services.ai-detector.loadbalancer.responseforwarding.flushinterval=-1
     environment:
-      - ZEROGPT_API_KEY=${ZEROGPT_API_KEY}
+      - ZEROGPT_API_KEY=deb0bc66-b630-4368-b3ac-c4c4094f3b79
       - PORT=5001
     networks:
       - n8n_default
