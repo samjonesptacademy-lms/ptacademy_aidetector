@@ -644,6 +644,11 @@
     </div>
 
     <div style="margin-bottom: 24px;">
+      <label for="assessor-name" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">Assessor's Full Name</label>
+      <input type="text" id="assessor-name" placeholder="Enter assessor's full name" style="width: 100%; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 14px;" required>
+    </div>
+
+    <div style="margin-bottom: 24px;">
       <label for="course-select" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">Qualification/Course</label>
       <select id="course-select" style="width: 100%; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 14px;" required>
         <option value="">-- Select a course --</option>
@@ -791,10 +796,12 @@ const btnAnalyse = document.getElementById('btn-analyse');
 const fileRemove = document.getElementById('file-remove');
 const courseSelect = document.getElementById('course-select');
 const learnerNameInput = document.getElementById('learner-name');
+const assessorNameInput = document.getElementById('assessor-name');
 
 let selectedFile = null;
 let selectedCourse = null;
 let learnerName = null;
+let assessorName = null;
 let allResults = [];
 let answerTextStore = {};
 let currentFilter = 'all';
@@ -825,8 +832,13 @@ learnerNameInput.addEventListener('input', (e) => {
   updateAnalyseButton();
 });
 
+assessorNameInput.addEventListener('input', (e) => {
+  assessorName = e.target.value.trim();
+  updateAnalyseButton();
+});
+
 function updateAnalyseButton() {
-  btnAnalyse.disabled = !selectedFile || !selectedCourse || !learnerName;
+  btnAnalyse.disabled = !selectedFile || !selectedCourse || !learnerName || !assessorName;
 }
 
 // Drag and drop
@@ -869,7 +881,7 @@ function show(id) { document.getElementById(id).style.display = 'block'; documen
 function hide(id) { document.getElementById(id).style.display = 'none'; document.getElementById(id).classList.remove('show'); }
 
 function runAnalysis() {
-  if (!selectedFile || !selectedCourse || !learnerName) return;
+  if (!selectedFile || !selectedCourse || !learnerName || !assessorName) return;
 
   document.getElementById('upload-section').style.display = 'none';
   document.getElementById('results').style.display = 'none';
@@ -881,6 +893,7 @@ function runAnalysis() {
   formData.append('file', selectedFile);
   formData.append('course', selectedCourse);
   formData.append('learner_name', learnerName);
+  formData.append('assessor_name', assessorName);
 
   fetch('/analyse', { method: 'POST', body: formData })
     .then(r => {

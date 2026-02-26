@@ -516,7 +516,7 @@ def get_courses():
     return jsonify({'courses': courses})
 
 
-def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown'):
+def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown', assessor_name='Unknown'):
     """Generator that yields analysis results as newline-delimited JSON."""
     gpt_calls = 0
     results = []
@@ -559,34 +559,39 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
     # Sort results by AI percentage for final summary
     results.sort(key=lambda x: x.get('ai_percentage', 0), reverse=True)
 
-    # Calculate summary statistics based on classifications
+    # Calculate summary statistics based on classifications (all answers)
     ai_count = sum(1 for r in results if r.get('overall_classification') == 'AI')
     ai_polished_count = sum(1 for r in results if r.get('overall_classification') == 'AI Polished')
     human_count = sum(1 for r in results if r.get('overall_classification') == 'Human')
-
-    # Calculate average percentages
-    avg_ai_pct = round(sum(r.get('ai_percentage', 0) for r in results) / len(results)) if results else 0
-    avg_ai_polished_pct = 0  # Simplified display: always 0 in new system
-    avg_human_pct = round(sum(r.get('human_percentage', 0) for r in results) / len(results)) if results else 0
-
-    # ── PORTFOLIO-LEVEL SCORING ────────────────────────────────────────────────
-    # Calculate portfolio metrics with confidence adjustment for short answers
-    portfolio_score = round(avg_ai_pct, 2)
 
     # Count short answers
     short_answer_count = sum(1 for r in results if r.get('low_confidence_flag', False))
     short_answer_pct = round((short_answer_count / len(results)) * 100, 1) if results else 0
 
-    # Calculate portfolio confidence (average of adjusted confidences)
-    portfolio_confidence = sum(r.get('adjusted_confidence', 0.5) for r in results) / len(results) if results else 0.5
+    # ── PORTFOLIO-LEVEL SCORING ────────────────────────────────────────────────
+    # Short answers (< 50 words) are excluded from portfolio scoring as there is
+    # insufficient text for reliable AI detection.
+    scoreable_results = [r for r in results if not r.get('low_confidence_flag', False)]
 
-    # Apply additional confidence penalty if many short answers (>10%)
+    avg_ai_pct = round(sum(r.get('ai_percentage', 0) for r in scoreable_results) / len(scoreable_results)) if scoreable_results else 0
+    avg_ai_polished_pct = 0  # Simplified display: always 0 in new system
+    avg_human_pct = round(sum(r.get('human_percentage', 0) for r in scoreable_results) / len(scoreable_results)) if scoreable_results else 0
+
+    portfolio_score = round(avg_ai_pct, 2)
+
+    # Calculate portfolio confidence from scoreable answers only
+    portfolio_confidence = round(
+        sum(r.get('adjusted_confidence', 0.5) for r in scoreable_results) / len(scoreable_results)
+        if scoreable_results else 0.5,
+        3
+    )
+
     quality_note = ""
-    if short_answer_pct > 10:
-        quality_note = f"Multiple short answers detected ({short_answer_count} answers < 50 words). Overall confidence may be lower due to limited text for analysis."
-        portfolio_confidence = portfolio_confidence * 0.85  # Additional 15% confidence reduction
-
-    portfolio_confidence = round(portfolio_confidence, 3)
+    if short_answer_count > 0:
+        excluded_note = f"{short_answer_count} short answer{'s' if short_answer_count > 1 else ''} (< 50 words) excluded from portfolio score."
+        quality_note = excluded_note
+        if not scoreable_results:
+            quality_note += " No scoreable answers remain — portfolio score unavailable."
 
     # Classify portfolio risk based on portfolio score
     if portfolio_score >= 65:
@@ -638,6 +643,7 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
     analysis_for_pdf = {
         'results': pdf_results,
         'learner_name': learner_name,
+        'assessor_name': assessor_name,
         'course_name': COURSES_CONFIG['courses'][course_id]['name'],
         'summary': {
             'total_answers': len(results),
@@ -698,6 +704,7 @@ def analyse():
     # Get course parameter (default to level2_gym for backwards compatibility)
     course_id = request.form.get('course', 'level2_gym')
     learner_name = request.form.get('learner_name', 'Unknown')
+    assessor_name = request.form.get('assessor_name', 'Unknown')
 
     if course_id not in COURSES_CONFIG['courses']:
         return jsonify({'error': f'Unknown course: {course_id}'}), 400
@@ -723,7 +730,7 @@ def analyse():
 
         # Stream analysis results
         return Response(
-            generate_analysis_stream(answers, course_id, file.filename, learner_name),
+            generate_analysis_stream(answers, course_id, file.filename, learner_name, assessor_name),
             mimetype='application/x-ndjson'
         )
 

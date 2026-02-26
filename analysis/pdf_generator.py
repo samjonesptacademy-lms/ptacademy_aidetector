@@ -46,6 +46,7 @@ def generate_pdf_report(results):
     answer_results = results.get('results', [])
     summary = results.get('summary', {})
     learner_name = results.get('learner_name', 'Unknown Learner')
+    assessor_name = results.get('assessor_name', 'Unknown Assessor')
 
     portfolio_score = summary.get('portfolio_score', 0)
     portfolio_confidence = summary.get('portfolio_confidence', 0.5)
@@ -116,8 +117,11 @@ def generate_pdf_report(results):
     title = Paragraph('PT Academy AI Detection Report', title_style)
     elements.append(title)
 
-    learner_para = Paragraph(f'<b>Learner:</b> {learner_name}', ParagraphStyle('LearnerName', parent=styles['Normal'], fontSize=11, textColor=colors.HexColor(PRIMARY_COLOR), spaceAfter=4, fontName='Helvetica-Bold'))
+    learner_para = Paragraph(f'<b>Learner:</b> {learner_name}', ParagraphStyle('LearnerName', parent=styles['Normal'], fontSize=11, textColor=colors.HexColor(PRIMARY_COLOR), spaceAfter=2, fontName='Helvetica-Bold'))
     elements.append(learner_para)
+
+    assessor_para = Paragraph(f'<b>Assessor:</b> {assessor_name}', ParagraphStyle('AssessorName', parent=styles['Normal'], fontSize=11, textColor=colors.HexColor(PRIMARY_COLOR), spaceAfter=4, fontName='Helvetica-Bold'))
+    elements.append(assessor_para)
 
     analysis_date = datetime.now().strftime('%d %B %Y at %H:%M')
     date_para = Paragraph(f'<i>Report Generated: {analysis_date}</i>', small_text)
