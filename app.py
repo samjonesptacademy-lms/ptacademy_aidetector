@@ -8,6 +8,7 @@ import os
 import re
 import json
 import tempfile
+import threading
 from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, Response, session
@@ -673,6 +674,29 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
         }
     }
     generate_analysis_stream.analysis_cache[session_id] = analysis_for_pdf
+
+    # Upload PDF to Dropbox in background (non-blocking)
+    def upload_to_dropbox():
+        try:
+            from analysis.pdf_generator import generate_pdf_report
+            from analysis.dropbox_uploader import upload_report_to_dropbox
+
+            pdf_bytes = generate_pdf_report(analysis_for_pdf)
+            course_name = analysis_for_pdf.get('course_name', 'Unknown Course')
+            learner_name = analysis_for_pdf.get('learner_name', 'Unknown Learner')
+
+            result = upload_report_to_dropbox(pdf_bytes, learner_name, course_name)
+            if result['success']:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Dropbox upload successful: {result['path']}")
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Background Dropbox upload failed: {e}")
+
+    upload_thread = threading.Thread(target=upload_to_dropbox, daemon=True)
+    upload_thread.start()
 
     # Send summary event
     yield json.dumps({
