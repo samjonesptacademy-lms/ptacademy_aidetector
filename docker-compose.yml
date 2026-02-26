@@ -2,6 +2,8 @@ services:
   ai-detector:
     build: .
     restart: always
+    env_file:
+      - /root/.env
     labels:
       - traefik.enable=true
       - traefik.http.routers.ai-detector.rule=Host(`ptacademyaidetector.cloud`)
