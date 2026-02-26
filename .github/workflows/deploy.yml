@@ -34,4 +34,3 @@ jobs:
             FLASK_DEBUG=false
             ENVEOF
             cp ~/.env /docker/ptacademy_aidetector/.env
-            cd /docker/ptacademy_aidetector && docker compose restart
