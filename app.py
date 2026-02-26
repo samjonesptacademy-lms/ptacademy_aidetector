@@ -800,6 +800,18 @@ def analyse():
         )
 
     except Exception as e:
+        # Send error notification email
+        try:
+            from analysis.email_notifier import send_error_email
+            import traceback
+            send_error_email(
+                error_title=type(e).__name__,
+                error_message=f"Failed to process workbook: {str(e)}",
+                error_traceback=traceback.format_exc()
+            )
+        except Exception as email_error:
+            logging.error(f"Failed to send error email: {email_error}")
+
         return jsonify({'error': f'Failed to process workbook: {str(e)}'}), 500
     finally:
         os.unlink(tmp_path)
