@@ -20,7 +20,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 
 def get_risk_color(risk_level):
-    """Return color for risk level badge."""
+    """Return colour for risk level badge."""
     colors_map = {
         'High': colors.red,
         'Medium': colors.orange,
@@ -47,6 +47,9 @@ def generate_pdf_report(results):
     summary = results.get('summary', {})
     learner_name = results.get('learner_name', 'Unknown Learner')
     assessor_name = results.get('assessor_name', 'Unknown Assessor')
+    analysis_mode = results.get('analysis_mode', 'full')
+    analysis_mode_label = results.get('analysis_mode_label', 'Full Workbook Analysis')
+    selected_units = results.get('selected_units', [])
 
     portfolio_score = summary.get('portfolio_score', 0)
     portfolio_confidence = summary.get('portfolio_confidence', 0.5)
@@ -147,7 +150,29 @@ def generate_pdf_report(results):
     )
     elements.append(recommendation_para)
 
-    elements.append(Spacer(1, 0.15 * inch))
+    elements.append(Spacer(1, 0.12 * inch))
+
+    # ── ANALYSIS MODE INFO ──────────────────────────────────────────────────
+    if analysis_mode == 'partial' and selected_units:
+        analysis_mode_para = Paragraph(
+            f'<b>Analysis Type:</b> Partial Analysis',
+            ParagraphStyle('AnalysisMode', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor(PRIMARY_COLOR), spaceAfter=2, fontName='Helvetica-Bold')
+        )
+        elements.append(analysis_mode_para)
+
+        units_para = Paragraph(
+            f'<b>Units Analysed:</b> {analysis_mode_label.replace("Partial Analysis - Units: ", "")}',
+            ParagraphStyle('UnitsInfo', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor(PRIMARY_COLOR), spaceAfter=4)
+        )
+        elements.append(units_para)
+    else:
+        analysis_mode_para = Paragraph(
+            f'<b>Analysis Type:</b> Full Workbook Analysis',
+            ParagraphStyle('AnalysisMode', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor(PRIMARY_COLOR), spaceAfter=4, fontName='Helvetica-Bold')
+        )
+        elements.append(analysis_mode_para)
+
+    elements.append(Spacer(1, 0.12 * inch))
 
     # ── PORTFOLIO SCORE CARD ────────────────────────────────────────────
     elements.append(Paragraph('Portfolio Score', heading_style))
@@ -160,7 +185,7 @@ def generate_pdf_report(results):
     score_card_data = [
         ['Metric', 'Value'],
         ['Average AI Percentage', f'{portfolio_score}%'],
-        ['Total Answers Analyzed', f'{len(answer_results)}'],
+        ['Total Answers Analysed', f'{len(answer_results)}'],
         ['AI Classified', f'{ai_count}'],
         ['Human Classified', f'{human_count}'],
         ['Short Answers (<50 words)', f'{short_answer_count} ({short_answer_pct}%)'],

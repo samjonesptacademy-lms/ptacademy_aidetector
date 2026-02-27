@@ -47,13 +47,13 @@ COURSES_CONFIG = load_courses_config()
 
 # Build flat field mapping for quick lookups
 def build_field_map():
-    """Create flat mapping of field_name -> (unit_label, question_label, course_id)"""
+    """Create flat mapping of field_name -> (unit_id, unit_label, question_label, course_id)"""
     field_map = {}
     for course_id, course_data in COURSES_CONFIG['courses'].items():
         for unit_id, unit_data in course_data['units'].items():
             unit_label = unit_data['label']
             for field_name, question_label in unit_data['fields'].items():
-                field_map[field_name] = (unit_label, question_label, course_id)
+                field_map[field_name] = (unit_id, unit_label, question_label, course_id)
     return field_map
 
 FIELD_MAP = build_field_map()
@@ -161,8 +161,14 @@ def _build_widget_map(reader):
 
 # ── PDF EXTRACTION ─────────────────────────────────────────────────────────────
 
-def extract_answers_from_pdf(pdf_path, course_id='level2_gym'):
-    """Extract learner answers from PDF using configured field mappings."""
+def extract_answers_from_pdf(pdf_path, course_id='level2_gym', selected_units=None):
+    """Extract learner answers from PDF using configured field mappings.
+
+    Args:
+        pdf_path: Path to PDF file
+        course_id: Course ID to filter by (default: 'level2_gym')
+        selected_units: List of unit_id strings to include, or None for all units
+    """
     reader = PdfReader(pdf_path)
     fields = reader.get_fields()
     if not fields:
@@ -176,11 +182,15 @@ def extract_answers_from_pdf(pdf_path, course_id='level2_gym'):
         if name not in FIELD_MAP:
             continue
 
-        unit_label, question_label, detected_course = FIELD_MAP[name]
+        unit_id, unit_label, question_label, detected_course = FIELD_MAP[name]
 
         # Skip if this field isn't part of the selected course
         # For backwards compatibility, allow level2_gym fields to be used by default
         if detected_course != course_id and detected_course != 'level2_gym':
+            continue
+
+        # Skip if unit is not in selected units (if filtering is active)
+        if selected_units is not None and unit_id not in selected_units:
             continue
 
         value = field.get('/V', '')
@@ -566,18 +576,34 @@ def test_email():
 
 @app.route('/courses', methods=['GET'])
 def get_courses():
-    """Return available courses for UI selection."""
+    """Return available courses with their units for UI selection."""
     courses = []
     for course_id, course_data in COURSES_CONFIG['courses'].items():
+        units = [
+            {'id': unit_id, 'label': unit_data['label']}
+            for unit_id, unit_data in course_data['units'].items()
+        ]
         courses.append({
             'id': course_id,
             'name': course_data['name'],
+            'units': units,
         })
     return jsonify({'courses': courses})
 
 
-def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown', assessor_name='Unknown'):
-    """Generator that yields analysis results as newline-delimited JSON."""
+def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown', assessor_name='Unknown',
+                            analysis_mode='full', selected_units=None):
+    """Generator that yields analysis results as newline-delimited JSON.
+
+    Args:
+        answers: List of extracted answers
+        course_id: Selected course ID
+        filename: Original PDF filename
+        learner_name: Learner's name
+        assessor_name: Assessor's name
+        analysis_mode: 'full' or 'partial'
+        selected_units: List of unit_ids if partial mode, None for full
+    """
     gpt_calls = 0
     results = []
     session_id = secrets.token_urlsafe(16)  # Generate session ID for PDF storage
@@ -590,9 +616,10 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
         'course_name': COURSES_CONFIG['courses'][course_id]['name'],
         'filename': filename,
         'session_id': session_id,
+        'analysis_mode': analysis_mode,
     }) + '\n'
 
-    # Analyze each answer and stream results
+    # Analyse each answer and stream results
     for idx, a in enumerate(answers, 1):
         detection = analyse_answer(a['question'], a['answer'], a['unit'], course_id)
 
@@ -700,11 +727,23 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
     if not hasattr(generate_analysis_stream, 'analysis_cache'):
         generate_analysis_stream.analysis_cache = {}
 
+    # Build analysis mode label for PDF
+    if analysis_mode == 'partial' and selected_units:
+        # Get unit labels for selected units
+        course_units = COURSES_CONFIG['courses'][course_id]['units']
+        selected_unit_labels = [course_units[uid]['label'] for uid in selected_units if uid in course_units]
+        analysis_mode_label = f"Partial Analysis - Units: {', '.join(selected_unit_labels)}"
+    else:
+        analysis_mode_label = "Full Workbook Analysis"
+
     analysis_for_pdf = {
         'results': pdf_results,
         'learner_name': learner_name,
         'assessor_name': assessor_name,
         'course_name': COURSES_CONFIG['courses'][course_id]['name'],
+        'analysis_mode': analysis_mode,
+        'analysis_mode_label': analysis_mode_label,
+        'selected_units': selected_units,
         'summary': {
             'total_answers': len(results),
             'ai_count': ai_count,
@@ -792,13 +831,17 @@ def analyse():
     if course_id not in COURSES_CONFIG['courses']:
         return jsonify({'error': f'Unknown course: {course_id}'}), 400
 
+    # Get selected units (partial analysis), or None for full analysis
+    selected_units_raw = request.form.getlist('units')
+    selected_units = selected_units_raw if selected_units_raw else None  # None = all units
+
     with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
         file.save(tmp.name)
         tmp_path = tmp.name
 
     try:
-        # Extract answers
-        answers = extract_answers_from_pdf(tmp_path, course_id)
+        # Extract answers (filtered by selected_units if provided)
+        answers = extract_answers_from_pdf(tmp_path, course_id, selected_units=selected_units)
         used_fallback = False
 
         if not answers:
@@ -811,9 +854,11 @@ def analyse():
                 'is_blank': True,
             }), 200
 
-        # Stream analysis results
+        # Stream analysis results with analysis mode info
         return Response(
-            generate_analysis_stream(answers, course_id, file.filename, learner_name, assessor_name),
+            generate_analysis_stream(answers, course_id, file.filename, learner_name, assessor_name,
+                                   analysis_mode='partial' if selected_units else 'full',
+                                   selected_units=selected_units),
             mimetype='application/x-ndjson'
         )
 
@@ -862,12 +907,30 @@ def download_report(session_id):
         if session_id in analysis_cache:
             del analysis_cache[session_id]
 
-        # Generate dynamic filename: "{Learner Name}_{Course Name}_AI Report_{YYYY-MM-DD}.pdf"
+        # Generate dynamic filename with analysis mode
+        # Format: "{Learner Name}_{Course Name}_AI Report_{Full|Partial[_Units]}_{YYYY-MM-DD}.pdf"
         from datetime import datetime
         learner = analysis_data.get('learner_name', 'Learner')
         course = analysis_data.get('course_name', 'Course')
+        analysis_mode = analysis_data.get('analysis_mode', 'full')
+        selected_units = analysis_data.get('selected_units')
         date_str = datetime.now().strftime('%Y-%m-%d')
-        safe_name = re.sub(r'[^\w\s\-]', '', f"{learner}_{course}_AI Report_{date_str}").strip()
+
+        # Build mode suffix
+        if analysis_mode == 'partial' and selected_units:
+            # Extract unit numbers from unit_ids (e.g., 'unit2' -> 'U2')
+            unit_suffixes = []
+            for unit_id in selected_units:
+                # Extract numeric part from unit_id
+                import re as re_module
+                match = re_module.search(r'\d+', unit_id)
+                if match:
+                    unit_suffixes.append(f"U{match.group()}")
+            mode_suffix = 'Partial_' + '_'.join(unit_suffixes) if unit_suffixes else 'Partial'
+        else:
+            mode_suffix = 'Full'
+
+        safe_name = re.sub(r'[^\w\s\-]', '', f"{learner}_{course}_AI Report_{mode_suffix}_{date_str}").strip()
         safe_name = re.sub(r'\s+', ' ', safe_name)
         filename = f"{safe_name}.pdf"
 

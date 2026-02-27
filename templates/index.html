@@ -618,6 +618,81 @@
     box-shadow: 0 2px 6px rgba(198,169,6,0.15);
   }
   .btn-new:hover { opacity: 0.9; box-shadow: 0 4px 10px rgba(198,169,6,0.25); }
+
+  /* Analysis Mode Toggle */
+  .mode-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .mode-toggle.hidden {
+    display: none;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mode-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .mode-btn.active {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  /* Unit Selection Panel */
+  .unit-hint {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 12px;
+    color: var(--text);
+  }
+  #unit-selection {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+  #unit-selection.hidden {
+    display: none;
+  }
+  #unit-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .unit-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .unit-checkbox-item input[type="checkbox"] {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+  }
+  .unit-checkbox-item label {
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text);
+    flex: 1;
+  }
+  .hidden {
+    display: none;
+  }
 </style>
 </head>
 <body>
@@ -653,6 +728,22 @@
       <select id="course-select" style="width: 100%; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 14px;" required>
         <option value="">-- Select a course --</option>
       </select>
+    </div>
+
+    <!-- Analysis Mode Toggle — only visible once a course is chosen -->
+    <div id="analysis-mode-toggle" class="mode-toggle hidden" style="margin-bottom: 24px;">
+      <button type="button" id="btn-full" class="mode-btn active" data-mode="full">
+        Full Workbook Analysis
+      </button>
+      <button type="button" id="btn-partial" class="mode-btn" data-mode="partial">
+        Partial Workbook Analysis
+      </button>
+    </div>
+
+    <!-- Unit Checkboxes — only visible in Partial mode -->
+    <div id="unit-selection" class="hidden" style="margin-bottom: 24px;">
+      <p class="unit-hint">Select the units to analyse:</p>
+      <div id="unit-checkboxes"></div>
     </div>
 
     <div class="drop-zone" id="drop-zone">
@@ -805,6 +896,8 @@ let assessorName = null;
 let allResults = [];
 let answerTextStore = {};
 let currentFilter = 'all';
+let courseUnits = {};  // Store course units for analysis mode toggle
+let analysisMode = 'full';  // 'full' or 'partial'
 
 // Load courses on page load
 document.addEventListener('DOMContentLoaded', async () => {
@@ -816,16 +909,89 @@ document.addEventListener('DOMContentLoaded', async () => {
       option.value = course.id;
       option.textContent = course.name;
       courseSelect.appendChild(option);
+
+      // Store units for later use
+      courseUnits[course.id] = course.units || [];
     });
   } catch (err) {
     console.error('Failed to load courses:', err);
   }
+
+  // Setup analysis mode toggle
+  document.getElementById('btn-full').addEventListener('click', (e) => {
+    e.preventDefault();
+    setAnalysisMode('full');
+  });
+  document.getElementById('btn-partial').addEventListener('click', (e) => {
+    e.preventDefault();
+    setAnalysisMode('partial');
+  });
 });
 
 courseSelect.addEventListener('change', (e) => {
   selectedCourse = e.target.value;
+
+  // Show/hide analysis mode toggle
+  const toggleDiv = document.getElementById('analysis-mode-toggle');
+  const unitSelectionDiv = document.getElementById('unit-selection');
+
+  if (selectedCourse) {
+    toggleDiv.classList.remove('hidden');
+    // Reset to full mode when course changes
+    setAnalysisMode('full');
+  } else {
+    toggleDiv.classList.add('hidden');
+    unitSelectionDiv.classList.add('hidden');
+  }
+
   updateAnalyseButton();
 });
+
+function setAnalysisMode(mode) {
+  analysisMode = mode;
+
+  // Update button states
+  document.getElementById('btn-full').classList.toggle('active', mode === 'full');
+  document.getElementById('btn-partial').classList.toggle('active', mode === 'partial');
+
+  // Show/hide unit selection
+  const unitSelectionDiv = document.getElementById('unit-selection');
+  if (mode === 'partial') {
+    populateUnitCheckboxes();
+    unitSelectionDiv.classList.remove('hidden');
+  } else {
+    unitSelectionDiv.classList.add('hidden');
+  }
+
+  updateAnalyseButton();
+}
+
+function populateUnitCheckboxes() {
+  if (!selectedCourse || !courseUnits[selectedCourse]) return;
+
+  const container = document.getElementById('unit-checkboxes');
+  container.innerHTML = '';
+
+  courseUnits[selectedCourse].forEach(unit => {
+    const item = document.createElement('div');
+    item.className = 'unit-checkbox-item';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = `unit-${unit.id}`;
+    checkbox.value = unit.id;
+    checkbox.checked = true;  // All units checked by default
+    checkbox.addEventListener('change', updateAnalyseButton);
+
+    const label = document.createElement('label');
+    label.htmlFor = `unit-${unit.id}`;
+    label.textContent = unit.label;
+
+    item.appendChild(checkbox);
+    item.appendChild(label);
+    container.appendChild(item);
+  });
+}
 
 learnerNameInput.addEventListener('input', (e) => {
   learnerName = e.target.value.trim();
@@ -838,7 +1004,16 @@ assessorNameInput.addEventListener('input', (e) => {
 });
 
 function updateAnalyseButton() {
-  btnAnalyse.disabled = !selectedFile || !selectedCourse || !learnerName || !assessorName;
+  // Base requirement: file, course, learner name, assessor name
+  let canAnalyse = selectedFile && selectedCourse && learnerName && assessorName;
+
+  // If partial mode, require at least one unit checked
+  if (canAnalyse && analysisMode === 'partial') {
+    const checkedUnits = document.querySelectorAll('#unit-checkboxes input[type="checkbox"]:checked');
+    canAnalyse = checkedUnits.length > 0;
+  }
+
+  btnAnalyse.disabled = !canAnalyse;
 }
 
 // Drag and drop
@@ -894,6 +1069,14 @@ function runAnalysis() {
   formData.append('course', selectedCourse);
   formData.append('learner_name', learnerName);
   formData.append('assessor_name', assessorName);
+
+  // Collect selected units if in partial mode
+  if (analysisMode === 'partial') {
+    const checkedUnits = document.querySelectorAll('#unit-checkboxes input[type="checkbox"]:checked');
+    checkedUnits.forEach(checkbox => {
+      formData.append('units', checkbox.value);
+    });
+  }
 
   fetch('/analyse', { method: 'POST', body: formData })
     .then(r => {
@@ -1026,14 +1209,22 @@ function resetToUpload() {
   clearFile();
   learnerNameInput.value = '';
   learnerName = null;
+  assessorNameInput.value = '';
+  assessorName = null;
   courseSelect.value = '';
   selectedCourse = null;
   allResults = [];
   answerTextStore = {};
   currentFilter = 'all';
+  analysisMode = 'full';  // Reset analysis mode
   document.getElementById('answer-cards').innerHTML = '';
   document.querySelectorAll('[data-filter]').forEach((t, i) => t.classList.toggle('active', i === 0));
   document.querySelectorAll('[data-sort]').forEach(t => t.classList.remove('active'));
+
+  // Hide analysis mode toggle and unit selection
+  document.getElementById('analysis-mode-toggle').classList.add('hidden');
+  document.getElementById('unit-selection').classList.add('hidden');
+
   document.getElementById('upload-section').style.display = 'block';
   document.getElementById('results').style.display = 'none';
   document.getElementById('results').classList.remove('show');
