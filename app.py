@@ -159,6 +159,37 @@ def _build_widget_map(reader):
     return widgets
 
 
+def _safe_get_fields(reader):
+    """Safely extract form fields from PDF, handling malformed appearance dictionaries.
+
+    Some PDFs have incomplete or malformed /AP dictionaries that cause pypdf's
+    get_fields() to raise KeyError. This function attempts get_fields() first,
+    and falls back to manual annotation scanning if that fails.
+
+    Returns a dict of {field_name: field_object} or {} if extraction fails completely.
+    """
+    try:
+        # Try standard pypdf get_fields() first
+        return reader.get_fields() or {}
+    except KeyError as e:
+        # Fallback: manually extract fields from annotations (skips malformed ones)
+        fields = {}
+        for page in reader.pages:
+            if '/Annots' not in page:
+                continue
+            for annot in page['/Annots']:
+                try:
+                    obj = annot.get_object()
+                    if obj.get('/Subtype') == '/Widget':
+                        name = obj.get('/T')
+                        if name:
+                            fields[str(name)] = obj
+                except Exception:
+                    # Skip any malformed annotations
+                    pass
+        return fields
+
+
 # ── PDF EXTRACTION ─────────────────────────────────────────────────────────────
 
 def extract_answers_from_pdf(pdf_path, course_id='level2_gym', selected_units=None):
@@ -170,7 +201,7 @@ def extract_answers_from_pdf(pdf_path, course_id='level2_gym', selected_units=No
         selected_units: List of unit_id strings to include, or None for all units
     """
     reader = PdfReader(pdf_path)
-    fields = reader.get_fields()
+    fields = _safe_get_fields(reader)
     if not fields:
         return []
 
@@ -193,7 +224,10 @@ def extract_answers_from_pdf(pdf_path, course_id='level2_gym', selected_units=No
         if selected_units is not None and unit_id not in selected_units:
             continue
 
-        value = field.get('/V', '')
+        try:
+            value = field.get('/V', '')
+        except Exception:
+            value = ''
         value_str = str(value).strip() if value else ''
 
         # Fall back to appearance stream when /V is empty (PDF saved without updating value)
@@ -226,7 +260,7 @@ def extract_answers_from_pdf(pdf_path, course_id='level2_gym', selected_units=No
 def extract_answers_fallback(pdf_path):
     """Fallback extraction for PDFs without standard field mappings."""
     reader = PdfReader(pdf_path)
-    fields = reader.get_fields()
+    fields = _safe_get_fields(reader)
     if not fields:
         return []
 
