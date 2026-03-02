@@ -18,6 +18,12 @@ jobs:
 
       - name: Update .env on VPS
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          ZEROGPT_API_KEY: ${{ secrets.ZEROGPT_API_KEY }}
+          DROPBOX_REFRESH_TOKEN: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
@@ -25,17 +31,18 @@ jobs:
           port: 22
           timeout: 30s
           command_timeout: 10m
+          envs: ZEROGPT_API_KEY,DROPBOX_REFRESH_TOKEN,AZURE_CLIENT_ID,AZURE_CLIENT_SECRET,AZURE_TENANT_ID
           script: |
-            cat > ~/.env << 'ENVEOF'
-            ZEROGPT_API_KEY=${{ secrets.ZEROGPT_API_KEY }}
-            DROPBOX_REFRESH_TOKEN=${{ secrets.DROPBOX_REFRESH_TOKEN }}
-            AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}
-            AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}
-            AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}
+            cat > ~/.env << EOF
+            ZEROGPT_API_KEY=$ZEROGPT_API_KEY
+            DROPBOX_REFRESH_TOKEN=$DROPBOX_REFRESH_TOKEN
+            AZURE_CLIENT_ID=$AZURE_CLIENT_ID
+            AZURE_CLIENT_SECRET=$AZURE_CLIENT_SECRET
+            AZURE_TENANT_ID=$AZURE_TENANT_ID
             EMAIL_FROM=no-reply@ptacademy.com
             EMAIL_TO=sam.jones@ptacademy.com
             PORT=5001
             FLASK_ENV=production
             FLASK_DEBUG=false
-            ENVEOF
+            EOF
             cp ~/.env /docker/ptacademy_aidetector/.env
