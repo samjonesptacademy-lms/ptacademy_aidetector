@@ -120,6 +120,153 @@
         }
       }
     },
+    "level2_gym_v2": {
+      "name": "Level 2 Gym Instructing (V2 Portfolio)",
+      "units": {
+        "unit3": {
+          "label": "Unit 3 – Lifestyle Management & Client Motivation",
+          "fields": {
+            "3.1": "1. Explain why it is important to form effective working relationships with clients",
+            "3.2": "2. Explain why it is important to present oneself and the organisation positively to clients",
+            "3.3": "3. Describe how different communication styles can be used to assist clients with motivation",
+            "3.4": "4. Explain the importance of valuing equality and diversity when working with clients",
+            "3.5": "5. Describe the importance of communication skills and strategies to suit the client's needs",
+            "3.6": "6. Identify 3 typical barriers to exercise/physical activity that clients experience",
+            "3.7": "7. Explain how incorporating clients' exercise preferences into their programme strengthens motivation",
+            "3.8": "8. Describe different incentives and rewards that can strengthen a client's motivation and adherence",
+            "3.9": "9. Describe 3 strategies that can help clients overcome typical barriers to exercise",
+            "3.10": "10. Explain why it is important for a client to take personal responsibility for fitness and motivation",
+            "3.11": "11. Describe how to assist clients to develop their own strategy for motivation and adherence",
+            "3.12": "12. Identify a behaviour change approach and how to encourage adherence to exercise",
+            "3.13": "13. Describe how to set short, medium and long term SMART goals",
+            "3.14": "14. Describe how to review and revise short, medium and long term SMART goals",
+            "3.15": "15. Explain why it is important to deal with clients' needs to their satisfaction",
+            "3.16": "16. Identify where to source relevant and appropriate evidence-based information to meet clients' needs",
+            "3.17": "17. Explain the importance of dealing with any delay in meeting clients' needs timely and effectively",
+            "3.18": "18. Explain how the feedback cycle helps improve customer service provided to clients",
+            "3.19": "19. Explain how to handle complaints",
+            "3.20": "20. Identify customer types that visit a health and fitness facility",
+            "3.21": "21. Outline the customer journey within a fitness facility environment",
+            "3.22": "22. Identify customer expectations and aspirations within the fitness facility environment",
+            "3.23": "23. Give an example of how to exceed customer expectations",
+            "3.24": "24. Describe ways to engage with customers to build rapport to maximise their experience",
+            "3.25": "25. Outline how to support safe and enjoyable use of a fitness facility environment",
+            "3.26": "26. Explain how to build social support and inclusion within a fitness environment",
+            "3.27": "27. Describe how to use IT and social media to support the customer experience",
+            "3.28": "28. Describe how to obtain customer feedback to support membership retention",
+            "3.29": "29. Identify a potential conflict situation in a fitness environment and how you would manage it",
+            "3.30": "30. Explain how to interpret customer data and use it to improve customer service",
+            "3.31": "31. Explain the importance of 'walking the gym floor'",
+            "3.32": "32. Outline what it means to be a professional and follow professional conduct",
+            "3.33": "33. What is a code of ethics?",
+            "3.34": "34. Outline the role of a fitness industry governing body"
+          }
+        },
+        "unit4": {
+          "label": "Unit 4 – Professional Practice & Health and Safety",
+          "fields": {
+            "4.1": "1. Give three examples of emergencies that may occur in a fitness environment",
+            "4.2": "2. Describe the roles that facility staff and external services play during an emergency",
+            "4.3": "3. Explain the importance of following emergency procedures calmly and correctly",
+            "4.4": "4. Describe how to maintain the safety of children, the elderly and the disabled during an emergency",
+            "4.5": "5. Why is health and safety important in a fitness environment?",
+            "4.6": "6. Give two examples of legal and regulatory requirements for health and safety in a fitness environment",
+            "4.7": "7. Describe the term 'duty of care' in relation to special population groups",
+            "4.8": "8. Describe the types of security procedures that apply in a fitness environment",
+            "4.9": "9. Describe two key health and safety documents relevant to the fitness environment",
+            "4.10": "10. Explain how to undertake routine maintenance and cleaning tasks in a gym environment",
+            "4.11": "11. Identify regulations for cleaning and maintenance protocols in a fitness environment",
+            "4.12": "12. Identify two cleaning or maintenance products used in a fitness environment (PPE and safe storage)",
+            "4.13": "13. How would you ensure hygiene standards are maintained in a fitness environment?",
+            "4.14a": "14. Risk assessment – Identify a possible hazard in a fitness environment",
+            "4.14b": "14. Risk assessment – Who might be harmed and how?",
+            "4.14c": "14. Risk assessment – What would you do to control the risk(s)?",
+            "4.14d": "14. Risk assessment – What further action would you need to take to control the risk(s)?",
+            "4.14e": "14. Risk assessment – Who needs to carry out the action?",
+            "4.14f": "14. Risk assessment – When is the action needed by?",
+            "4.14g": "14. Risk assessment – Is there any follow up action needed?",
+            "4.15": "15. Describe the term 'safeguarding' and who may it apply to in a fitness environment",
+            "4.16a": "16. Safeguarding – Identify two types of abuse and give examples of signs of abuse",
+            "4.16b": "16. Safeguarding – What procedures should be in place to safeguard children and vulnerable people?",
+            "4.16c": "16. Safeguarding – How would you protect yourself from accusations of abuse?",
+            "4.16d": "16. Safeguarding – What agencies are responsible for safeguarding children and vulnerable people?",
+            "4.17": "17. How would you maintain information confidentiality?"
+          }
+        },
+        "unit5": {
+          "label": "Unit 5 – Planning & Reviewing Gym-Based Exercise Programmes",
+          "fields": {
+            "5.1": "1. What is the process of informed consent?",
+            "5.2": "2. Describe four different methods of collecting information/information gathering on a client",
+            "5.3": "3. Explain how you would determine which methods of information gathering would be appropriate",
+            "5.4": "4. Describe methods of screening a client before exercise",
+            "5.5": "5. What is 'risk stratification' and why is it important?",
+            "5.6": "6. Explain the role of intrinsic and extrinsic motivation in exercise adherence",
+            "5.7": "7. Describe two factors that may affect safe exercise participation",
+            "5.8": "8. Give two examples of how client information affects the planning of exercise",
+            "5.9": "9. Identify two reasons for exercise deferral",
+            "5.10": "10. Identify two other allied health care professionals",
+            "5.11": "11. Describe how you would plan gym-based exercise to meet the needs of clients",
+            "5.12": "12. What factors would you consider when planning a group circuit session?",
+            "5.13": "13. Give two examples of exercises and how you may progress and regress them",
+            "5.14": "14. When conducting an induction service, explain what information should be included in the welcome brief",
+            "5.15": "15. Describe what you would do if the fire alarm sounded during a gym induction",
+            "5.16": "16. During the group gym induction, how would you maximise member engagement?",
+            "5.17": "17. What additional information would you include in a group induction apart from exercise?"
+          }
+        },
+        "unit5_programme": {
+          "label": "Unit 5 – Client Consultation & Programme Planning",
+          "fields": {
+            "Text Field 467": "Consultation: Describe client's current activity levels (ADL, sports and occupational activities)",
+            "Text Field 30240": "SMART Goal: Long-term goal (6–12 months)",
+            "Text Field 30241": "SMART Goal: Short-term goal (1–4 weeks)",
+            "Text Field 30242": "SMART Goal: Medium-term goal (3–6 months)"
+          }
+        },
+        "unit5_teaching": {
+          "label": "Unit 5 – Programme Card Teaching Points & Special Population Adaptations",
+          "fields": {
+            "Text Field 30250": "Programme card – Warm-up CV: Teaching points and form cues",
+            "Text Field 30257": "Programme card – Preparatory stretch 1: Teaching points and form cues",
+            "Text Field 30260": "Programme card – Preparatory stretch 2: Teaching points and form cues",
+            "Text Field 30369": "Programme card – Preparatory stretch 3: Teaching points and form cues",
+            "Text Field 30374": "Programme card – Preparatory stretch 4: Teaching points and form cues",
+            "Text Field 30243": "Programme card – Main CV: Teaching points and form cues",
+            "Text Field 30264": "Programme card – Resistance exercise 1: Teaching points and form cues",
+            "Text Field 30265": "Programme card – Resistance exercise 2: Teaching points and form cues",
+            "Text Field 30280": "Programme card – Resistance exercise 3: Teaching points and form cues",
+            "Text Field 30287": "Programme card – Resistance exercise 4: Teaching points and form cues",
+            "Text Field 30294": "Programme card – Resistance exercise 5: Teaching points and form cues",
+            "Text Field 30326": "Programme card – Resistance exercise 6: Teaching points and form cues",
+            "Text Field 30333": "Programme card – Resistance exercise 7: Teaching points and form cues",
+            "Text Field 30340": "Programme card – Resistance exercise 8: Teaching points and form cues",
+            "Text Field 30347": "Programme card – Resistance exercise 9: Teaching points and form cues",
+            "Text Field 30354": "Programme card – Resistance exercise 10: Teaching points and form cues",
+            "Text Field 30361": "Programme card – Resistance exercise 11: Teaching points and form cues",
+            "Text Field 30214": "Programme card – Cool-down CV: Teaching points and form cues",
+            "Text Field 30183": "Programme card – Cool-down stretch 1: Teaching points and form cues",
+            "Text Field 30192": "Programme card – Cool-down stretch 2: Teaching points and form cues",
+            "Text Field 30210": "Programme card – Cool-down stretch 3: Teaching points and form cues",
+            "Text Field 30217": "Programme card – Cool-down stretch 4: Teaching points and form cues",
+            "Text Field 30236": "Adapt safely: Exercise adaptation for 14–16 year olds",
+            "Text Field 30237": "Adapt safely: Exercise adaptation for antenatal and postnatal clients",
+            "Text Field 30238": "Adapt safely: Exercise adaptation for older people",
+            "Text Field 30239": "Adapt safely: Exercise adaptation for disabled clients"
+          }
+        },
+        "unit5_consult": {
+          "label": "Unit 5 – Client Consultation",
+          "fields": {
+            "Condultation_Q_5": "Consultation: How often in the week can your client participate in regular exercise?",
+            "Condultation_Q_8": "Consultation: What are the main barriers to the client achieving their goal?",
+            "Condultation_Q_10": "Consultation: Client's reason for training and primary goals (in their own words)",
+            "Condultation_Q_11": "Consultation: Client's gym experience and training background",
+            "Condultation_Q_12": "Consultation: What activities or gym equipment does the client like or dislike?"
+          }
+        }
+      }
+    },
     "level3_pt": {
       "name": "Level 3 Personal Training (V3 Portfolio)",
       "units": {
