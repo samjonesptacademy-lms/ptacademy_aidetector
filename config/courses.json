@@ -267,6 +267,98 @@
         }
       }
     },
+    "level3_pt_v2": {
+      "name": "Level 3 Personal Training (V2 Portfolio)",
+      "units": {
+        "unit3a": {
+          "label": "Unit 3 – Planning Exercise Programme Design (Short Answer Questions)",
+          "fields": {
+            "Text Field 647": "1. Risk factors and safety measures for working in an outdoor/non-gym environment",
+            "Text Field 648": "1. Risk factors and safety measures when using portable equipment",
+            "Text Field 649": "1. Risk factors and safety measures for the client type in an alternative environment",
+            "Unit_2_Q_19": "2. Explain why it is important for clients to understand the advantages of personal training",
+            "Unit_2_Q_24": "3. Explain why it is important for a personal trainer to work together with clients to agree goals, objectives, programmes and adaptations",
+            "Unit_2_Q_26": "4. Explain the importance of developing client rapport",
+            "Unit_2_Q_29": "5. Describe a psychological factor which could affect willingness to change habits and behaviours",
+            "Unit_2_Q_30": "6. Explain the importance of long-term behaviour change in developing client fitness",
+            "Unit_2_Q_31": "7. Explain how to ensure clients commit themselves to long-term change",
+            "Unit_2_Q_32": "8. Identify a strategy to increase client motivation to assist behaviour change",
+            "Unit_2_Q_33": "9. Explain the principles of informed consent before collecting client information",
+            "Unit_2_Q_34": "10. Explain why informed consent should be obtained before collecting information for a PT programme",
+            "Unit_2_Q_16": "11. Purpose of motivational interviewing and how to create a motivational environment for client communications",
+            "Unit_2_Q_36": "12. Explain how to select the most appropriate methods of collecting client information according to client need",
+            "Unit_2_Q_40": "13. Identify factors that may affect the validity and reliability of client assessment data",
+            "Unit_2_Q_42": "14. Identify the legal and ethical implications of collecting client information, including confidentiality",
+            "Unit_2_Q_44": "15. Identify the risks and benefits of exercise for those with medically controlled conditions",
+            "Unit_2_Q_35": "16. Identify when it might be appropriate to share the programme with other professionals",
+            "Unit_2_Q_37": "17. Explain the key principles of designing programmes to achieve short, medium and long-term goals",
+            "Unit_2_Q_39": "18. Identify modifiable and non-modifiable health, fitness and lifestyle factors which increase risk of commonly occurring diseases",
+            "Unit_2_Q_41": "19. Explain how to use risk stratification tools based upon client observations and data collection",
+            "Unit_2_Q_43": "20. How do common medically controlled diseases affect the nation, and how may they impact on a client's lifestyle"
+          }
+        },
+        "unit3b": {
+          "label": "Unit 3 – Case Study (Client Consultation & Nutrition)",
+          "fields": {
+            "Condultation_Q_37": "Consultation: Client's reason for training and primary goals",
+            "Condultation_Q_38": "Consultation: SMART training goals (long, medium and short term)",
+            "Condultation_Q_39": "Consultation: Main barriers to the client achieving their goal and nutrition plan",
+            "Condultation_Q_40": "Consultation: How often can the client participate in regular exercise",
+            "Condultation_Q_41": "Consultation: Client's gym experience and training background (including training age)",
+            "Condultation_Q_42": "Consultation: Activities or gym equipment the client likes or dislikes",
+            "Unit_3_Q_116": "Consultation: Technology to help motivate client and support exercise adherence",
+            "u1_FB_1st 58": "Nutrition: Summary of client's current food intake vs healthy eating guidelines and dietary recommendations"
+          }
+        },
+        "unit3c": {
+          "label": "Unit 3 – Case Study (Programme Overview & Session Cards)",
+          "fields": {
+            "Text Field 5041": "Weeks 1–2: Description and rationale for advanced resistance training systems and CV method used",
+            "Text Field 5042": "Weeks 3–4: Description and rationale for advanced resistance training systems and CV method used",
+            "Text Field 5060": "Weeks 5–6: Description and rationale for advanced resistance training systems and CV method used",
+            "Text Field 5061": "Weeks 7–8: Description and rationale for advanced resistance training systems and CV method used",
+            "Text Field 604": "1-to-1 Programme Card: Safety checks (environment and client)",
+            "Text Field 605": "1-to-1 Programme Card: Resources needed for the session",
+            "Text Field 30297": "1-to-1 Programme Card: Main CV – description of training system used",
+            "Text Field 30465": "1-to-1 Programme Card: Cool-down CV – notes and coaching points",
+            "Text Field 658": "1-to-1 Programme Card: PNF stretch technique description and how it works",
+            "Text Field 6010": "Small Group PT: Safety checks (environment and client)",
+            "Text Field 6011": "Small Group PT: Resources needed for the session",
+            "Text Field 659": "Small Group PT: Warm-up description and coaching notes",
+            "Text Field 660": "Small Group PT: Cool-down description and coaching notes"
+          }
+        },
+        "unit3d": {
+          "label": "Unit 3 – Case Study Review",
+          "fields": {
+            "Text Field 577": "Case Study Review: Client progress, commitment, dietary changes, comparison of health and fitness test data and future plans"
+          }
+        },
+        "unit5": {
+          "label": "Unit 5 – Business Acumen & Use of Technology for a Personal Trainer",
+          "fields": {
+            "Unit_2_Q_87": "1. Explain how IT systems can support and manage aspects of a personal training business",
+            "Unit_2_Q_80": "2. Business summary – describe your personal training business, target market and services",
+            "Unit_2_Q_82": "3. Business aims – what you aim to provide and achieve",
+            "Unit_2_Q_73": "4. Financial summary – income sources, expenses and financial forecast overview",
+            "Unit_2_Q_78": "5. Business name",
+            "Unit_2_Q_79": "6. Elevator pitch – a short compelling summary of your business proposition",
+            "Unit_2_Q_84": "7. What are you going to sell: a product, a service or both?",
+            "Unit_2_Q_85": "8. Describe the basic product/service you are going to sell",
+            "Unit_2_Q_28": "9. Describe the different types of product/service you are going to be selling",
+            "Unit_2_Q_86": "10. Are your customers/clients individuals, businesses or both?",
+            "Unit_2_Q_68": "11. Describe your typical customer",
+            "Unit_2_Q_70": "12. What prompts your customers to buy your product/service?",
+            "Unit_2_Q_65": "13. Primary and secondary market research you have conducted to understand your market",
+            "Unit_2_Q_103": "14. SWOT Analysis – Business Strengths",
+            "Unit_2_Q_1026": "14. SWOT Analysis – Business Weaknesses",
+            "Unit_2_Q_101": "14. SWOT Analysis – Business Opportunities",
+            "Unit_2_Q_1025": "14. SWOT Analysis – Business Threats",
+            "Unit_2_Q_63": "17. Unique selling point (USP) of your personal training business"
+          }
+        }
+      }
+    },
     "level3_pt": {
       "name": "Level 3 Personal Training (V3 Portfolio)",
       "units": {
