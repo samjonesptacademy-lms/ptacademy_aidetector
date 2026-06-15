@@ -12,9 +12,12 @@ services:
       - traefik.http.routers.ai-detector.tls.certresolver=mytlschallenge
       - traefik.http.services.ai-detector.loadbalancer.server.port=5001
       - traefik.http.services.ai-detector.loadbalancer.responseforwarding.flushinterval=-1
+    # Secrets (ZEROGPT_API_KEY, DROPBOX_REFRESH_TOKEN, AZURE_*, EMAIL_*) come
+    # from /root/.env above, which the GitHub Action writes from GitHub Secrets.
+    # Do NOT re-declare secrets here via ${...}: `environment` overrides
+    # `env_file`, so a reset Hostinger panel would clobber the real values with
+    # placeholders. Only non-secret runtime literals belong here.
     environment:
-      - ZEROGPT_API_KEY=${ZEROGPT_API_KEY}
-      - DROPBOX_ACCESS_TOKEN=${DROPBOX_ACCESS_TOKEN}
       - PORT=5001
       - FLASK_ENV=production
       - FLASK_DEBUG=false
