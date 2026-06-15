@@ -7,6 +7,7 @@ Supports multiple qualifications with configurable prompts and field mappings.
 import os
 import re
 import json
+import logging
 import tempfile
 import threading
 from pathlib import Path
@@ -159,19 +160,56 @@ def _build_widget_map(reader):
     return widgets
 
 
+def _coerce_field_value(value):
+    """Resolve a form field /V into a clean string.
+
+    Handles indirect references and stream-valued fields. Some PDF editors save
+    long field values as a (flate-compressed) stream of Windows-1252 text rather
+    than a plain string; pypdf decodes these with strict UTF-8, which raises a
+    UnicodeDecodeError on bytes like 0x93 (a "smart" quote). We decode the raw
+    bytes ourselves with a tolerant encoding fallback instead.
+    """
+    if value is None:
+        return ''
+    try:
+        obj = value.get_object()  # resolve IndirectObject -> concrete object
+    except Exception:
+        obj = value
+    get_data = getattr(obj, 'get_data', None)
+    if callable(get_data):
+        # Stream-valued field: decode the decompressed bytes ourselves.
+        try:
+            raw = obj.get_data()
+        except Exception:
+            return ''
+        if isinstance(raw, bytes):
+            for enc in ('utf-8', 'cp1252', 'latin-1'):
+                try:
+                    return raw.decode(enc).strip()
+                except UnicodeDecodeError:
+                    continue
+            return raw.decode('latin-1', errors='replace').strip()
+        return str(raw).strip()
+    return str(obj).strip()
+
+
 def _safe_get_fields(reader):
-    """Safely extract form fields from PDF, handling malformed appearance dictionaries.
+    """Safely extract form fields from PDF, handling malformed/undecodable fields.
 
     Some PDFs have incomplete or malformed /AP dictionaries that cause pypdf's
-    get_fields() to raise KeyError. This function attempts get_fields() first,
-    and falls back to manual annotation scanning if that fails.
+    get_fields() to raise KeyError, or store field values as streams of
+    non-UTF-8 text that make pypdf raise UnicodeDecodeError. This function
+    attempts get_fields() first, and falls back to manual annotation scanning if
+    that fails for any reason.
 
     Returns a dict of {field_name: field_object} or {} if extraction fails completely.
     """
     try:
         # Try standard pypdf get_fields() first
         return reader.get_fields() or {}
-    except KeyError as e:
+    except Exception as e:
+        logging.warning(f"get_fields() failed ({type(e).__name__}: {e}); "
+                        "falling back to manual annotation scan")
         # Fallback: manually extract fields from annotations (skips malformed ones)
         fields = {}
         for page in reader.pages:
@@ -225,10 +263,9 @@ def extract_answers_from_pdf(pdf_path, course_id='level2_gym', selected_units=No
             continue
 
         try:
-            value = field.get('/V', '')
+            value_str = _coerce_field_value(field.get('/V'))
         except Exception:
-            value = ''
-        value_str = str(value).strip() if value else ''
+            value_str = ''
 
         # Fall back to appearance stream when /V is empty (PDF saved without updating value)
         if not value_str or MCQ_VALUE_PATTERN.match(value_str):
@@ -273,10 +310,9 @@ def extract_answers_fallback(pdf_path):
     for name, field in fields.items():
         if skip.match(name):
             continue
-        value = field.get('/V', '')
-        if not value:
+        value_str = _coerce_field_value(field.get('/V'))
+        if not value_str:
             continue
-        value_str = str(value).strip()
         if MCQ_VALUE_PATTERN.match(value_str) or len(value_str) < 40:
             continue
         if re.match(r'^\d{1,2}[./]\d{1,2}[./]\d{2,4}$', value_str):
