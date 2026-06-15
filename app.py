@@ -345,10 +345,16 @@ def detect_with_zerogpt(question, answer, unit, course_id):
     import time
 
     try:
-        # Retry logic: attempt up to 3 times with delays
-        max_retries = 2
-        retry_delay = 1  # seconds
+        # Retry logic: re-check the answer until Zero GPT returns a *valid* result.
+        # Crucially, the empty/invalid-response check lives INSIDE the loop, so a
+        # 200 with an empty body is retried rather than failing immediately.
+        # Retried: timeouts, connection errors, transient 429/5xx, and empty bodies.
+        # Not retried: genuine 4xx (e.g. bad API key) — those won't change on retry.
+        max_retries = 4
+        base_delay = 1  # seconds; exponential backoff capped at 10s
 
+        response_data = None
+        data = {}
         for attempt in range(max_retries + 1):
             try:
                 # Prepare request headers
@@ -364,28 +370,34 @@ def detect_with_zerogpt(question, answer, unit, course_id):
 
                 # Make API request to Zero GPT (increased timeout to 60s)
                 response = requests.post(ZEROGPT_ENDPOINT, json=payload, headers=headers, timeout=60)
-                response.raise_for_status()
 
-                # Parse response
+                # Fail fast on client errors that won't change on retry (bad key, bad request)
+                if 400 <= response.status_code < 500 and response.status_code != 429:
+                    response.raise_for_status()
+
+                # Transient server error or rate limit - retry
+                if response.status_code in (429, 500, 502, 503, 504):
+                    raise ValueError(f"Transient {response.status_code} from Zero GPT API")
+
+                # Parse and validate response inside the loop so empty/invalid
+                # bodies are re-checked instead of being accepted as final.
+                # Zero GPT returns: { "success": true, "data": { "fakePercentage": 0-100, "feedback": "...", ... } }
                 response_data = response.json()
-                break  # Success, exit retry loop
+                data = response_data.get('data', {})
+                if not data or not data.get('feedback'):
+                    raise ValueError("Empty or invalid response from Zero GPT API")
+
+                break  # Valid result received, exit retry loop
 
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, ValueError) as e:
-                # Timeout, connection error, or JSON parse error - retry
+                # Timeout, connection error, transient status, JSON parse error,
+                # or empty body - retry with exponential backoff.
                 if attempt < max_retries:
-                    time.sleep(retry_delay)
+                    time.sleep(min(base_delay * (2 ** attempt), 10))
                     continue
                 else:
                     # All retries exhausted
                     raise
-
-        # Extract data from Zero GPT response
-        # Zero GPT returns: { "success": true, "data": { "fakePercentage": 0-100, "feedback": "...", ... } }
-        data = response_data.get('data', {})
-
-        # Validate response - check if data is empty or invalid
-        if not data or not data.get('feedback'):
-            raise ValueError("Empty or invalid response from Zero GPT API")
 
         # Extract and validate numeric fields (convert empty strings to 0)
         fake_percentage_raw = data.get('fakePercentage', 0)
