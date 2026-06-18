@@ -10,6 +10,7 @@ import json
 import logging
 import tempfile
 import threading
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, Response, session
@@ -805,10 +806,6 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
     else:
         overall_risk = 'unlikely'
 
-    # Store analysis in session for PDF download (using a simple in-memory store)
-    if not hasattr(generate_analysis_stream, 'analysis_cache'):
-        generate_analysis_stream.analysis_cache = {}
-
     # Build analysis mode label for PDF
     if analysis_mode == 'partial' and selected_units:
         # Get unit labels for selected units
@@ -841,7 +838,10 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
             'risk_breakdown': risk_breakdown,
         }
     }
-    generate_analysis_stream.analysis_cache[session_id] = analysis_for_pdf
+    # Persist to a shared on-disk store so any gunicorn worker can serve the
+    # later /download-report request (an in-memory dict is per-worker and caused
+    # ~half of downloads to 404 with "File wasn't available on site").
+    store_analysis_report(session_id, analysis_for_pdf)
 
     # Upload PDF to Dropbox in background (non-blocking)
     def upload_to_dropbox():
@@ -969,15 +969,64 @@ Error: {str(e)}""",
         os.unlink(tmp_path)
 
 
+# ── SHARED ANALYSIS REPORT STORE ────────────────────────────────────────────────
+# Report data for PDF downloads is persisted to disk rather than an in-process
+# dict because the app runs multiple gunicorn workers (see Dockerfile). The
+# analysis (SSE) request and the later /download-report request can be routed to
+# different workers, so an in-memory cache caused intermittent 404s.
+
+REPORT_STORE_DIR = Path(tempfile.gettempdir()) / 'ai_detector_reports'
+REPORT_STORE_TTL = 24 * 60 * 60  # seconds; reports older than this are pruned
+
+
+def _report_path(session_id):
+    # session_id is a secrets.token_urlsafe string; strip anything else to be
+    # safe against path traversal before using it as a filename.
+    safe = re.sub(r'[^A-Za-z0-9_-]', '', session_id or '')
+    return REPORT_STORE_DIR / f'{safe}.json'
+
+
+def _prune_old_reports():
+    """Delete stored reports older than REPORT_STORE_TTL."""
+    try:
+        now = time.time()
+        for p in REPORT_STORE_DIR.glob('*.json'):
+            try:
+                if now - p.stat().st_mtime > REPORT_STORE_TTL:
+                    p.unlink()
+            except OSError:
+                pass
+    except OSError:
+        pass
+
+
+def store_analysis_report(session_id, analysis_data):
+    """Persist analysis data for later PDF download (shared across workers)."""
+    REPORT_STORE_DIR.mkdir(parents=True, exist_ok=True)
+    _prune_old_reports()
+    with open(_report_path(session_id), 'w', encoding='utf-8') as f:
+        json.dump(analysis_data, f)
+
+
+def load_analysis_report(session_id):
+    """Load previously stored analysis data, or None if missing/unreadable."""
+    if not session_id:
+        return None
+    try:
+        with open(_report_path(session_id), 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None
+
+
 @app.route('/download-report/<session_id>', methods=['GET'])
 def download_report(session_id):
     """Download PDF report for analysis results."""
     try:
         from analysis.pdf_generator import generate_pdf_report
 
-        # Retrieve analysis from cache
-        analysis_cache = getattr(generate_analysis_stream, 'analysis_cache', {})
-        analysis_data = analysis_cache.get(session_id)
+        # Retrieve analysis from the shared on-disk store
+        analysis_data = load_analysis_report(session_id)
 
         if not analysis_data:
             return jsonify({'error': 'No analysis data found for this session. The analysis may have expired.'}), 404
@@ -985,9 +1034,8 @@ def download_report(session_id):
         # Generate PDF
         pdf_bytes = generate_pdf_report(analysis_data)
 
-        # Clean up cache entry after download
-        if session_id in analysis_cache:
-            del analysis_cache[session_id]
+        # Note: the stored report is intentionally NOT deleted here so the mentor
+        # can re-download. Old reports are pruned by TTL in store_analysis_report.
 
         # Generate dynamic filename with analysis mode
         # Format: "{Learner Name}_{Course Name}_AI Report_{Full|Partial[_Units]}_{YYYY-MM-DD}.pdf"
