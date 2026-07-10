@@ -219,16 +219,29 @@ def generate_pdf_report(results):
         elements.append(Spacer(1, 0.1 * inch))
 
 
-    # ── ANSWER SUMMARY TABLE (selected answers only) ─────────────────────
+    # ── ANSWER-BY-ANSWER ANALYSIS ────────────────────────────────────────
     elements.append(Paragraph('Answer-by-Answer Analysis', heading_style))
-    elements.append(Paragraph('<i>Sorted by unit and question order</i>', small_text))
     elements.append(Spacer(1, 0.08 * inch))
 
-    # Sort answers into natural unit -> question order (matches the workbook)
-    sorted_answers = sorted(answer_results, key=lambda x: x.get('order', 0))
+    # Split answers into those needing review (anything not classified Human)
+    # and Human-classified answers. Each group is shown in natural unit ->
+    # question order so it reads like the workbook.
+    needs_review = sorted(
+        [r for r in answer_results if r.get('overall_classification') != 'Human'],
+        key=lambda x: x.get('order', 0)
+    )
+    human_answers = sorted(
+        [r for r in answer_results if r.get('overall_classification') == 'Human'],
+        key=lambda x: x.get('order', 0)
+    )
 
-    # Create detailed answer breakdown
-    for idx, result in enumerate(sorted_answers, 1):
+    section_heading_style = ParagraphStyle(
+        'SectionHeading', parent=styles['Normal'], fontSize=11,
+        textColor=colors.HexColor(PRIMARY_COLOR), spaceBefore=6, spaceAfter=2,
+        fontName='Helvetica-Bold'
+    )
+
+    def render_answer(idx, result, is_last):
         unit = result.get('unit', 'Unknown')
         question = result.get('question', '')
         answer_text = result.get('answer_full', '')  # Full answer text from storage
@@ -265,12 +278,36 @@ def generate_pdf_report(results):
         )
         elements.append(answer_para)
 
-        # Add divider between answers (except last one)
-        if idx < len(sorted_answers):
+        # Add divider between answers (except last one in the group)
+        if not is_last:
             elements.append(Spacer(1, 0.06 * inch))
-            divider = Paragraph('─' * 80, small_text)
-            elements.append(divider)
+            elements.append(Paragraph('─' * 80, small_text))
             elements.append(Spacer(1, 0.06 * inch))
+
+    def render_section(title, subtitle, group, start_idx):
+        elements.append(Paragraph(title, section_heading_style))
+        elements.append(Paragraph(f'<i>{subtitle}</i>', small_text))
+        elements.append(Spacer(1, 0.08 * inch))
+        for offset, result in enumerate(group):
+            render_answer(start_idx + offset, result, is_last=(offset == len(group) - 1))
+        elements.append(Spacer(1, 0.12 * inch))
+        return start_idx + len(group)
+
+    next_idx = 1
+    if needs_review:
+        next_idx = render_section(
+            'Flagged',
+            f'{len(needs_review)} answer(s) not classified as Human (AI / Mixed / AI Polished) — in unit and question order',
+            needs_review, next_idx
+        )
+    if human_answers:
+        next_idx = render_section(
+            'Human-Classified Answers',
+            f'{len(human_answers)} answer(s) classified as Human — in unit and question order',
+            human_answers, next_idx
+        )
+    if not needs_review and not human_answers:
+        elements.append(Paragraph('No answers were analysed.', small_text))
 
     elements.append(Spacer(1, 0.12 * inch))
 
