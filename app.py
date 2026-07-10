@@ -47,15 +47,29 @@ def load_courses_config():
 # Load configurations at startup
 COURSES_CONFIG = load_courses_config()
 
-# Build flat field mapping for quick lookups
+# Build field mapping for quick lookups
 def build_field_map():
-    """Create flat mapping of field_name -> (unit_id, unit_label, question_label, course_id)"""
+    """Create mapping of field_name -> {course_id: (unit_id, unit_label, question_label)}.
+
+    A single generic field name (e.g. "Text Field 577") is reused by several
+    different course configs. Keying only by field name would let whichever course
+    is defined last in courses.json silently clobber the others, dropping those
+    questions from every earlier course. So we keep every course's mapping per
+    field name and resolve by the requested course at extraction time.
+    """
     field_map = {}
     for course_id, course_data in COURSES_CONFIG['courses'].items():
+        # `order` is the field's position within its course config, used to sort
+        # the report into natural unit -> question order (the PDF's own field
+        # order is scrambled and would otherwise leak into the report).
+        order = 0
         for unit_id, unit_data in course_data['units'].items():
             unit_label = unit_data['label']
             for field_name, question_label in unit_data['fields'].items():
-                field_map[field_name] = (unit_id, unit_label, question_label, course_id)
+                field_map.setdefault(field_name, {})[course_id] = (
+                    unit_id, unit_label, question_label, order
+                )
+                order += 1
     return field_map
 
 FIELD_MAP = build_field_map()
@@ -249,15 +263,17 @@ def extract_answers_from_pdf(pdf_path, course_id='level2_gym', selected_units=No
     answers = []
     for raw_name, field in fields.items():
         name = TRUNCATED_FIELD_MAP.get(raw_name, raw_name)
-        if name not in FIELD_MAP:
+        owners = FIELD_MAP.get(name)
+        if not owners:
             continue
 
-        unit_id, unit_label, question_label, detected_course = FIELD_MAP[name]
-
-        # Skip if this field isn't part of the selected course
-        # For backwards compatibility, allow level2_gym fields to be used by default
-        if detected_course != course_id and detected_course != 'level2_gym':
+        # Resolve the mapping for the requested course. Fall back to level2_gym for
+        # backwards compatibility (its generic field names predate multi-course).
+        entry = owners.get(course_id) or owners.get('level2_gym')
+        if not entry:
             continue
+
+        unit_id, unit_label, question_label, order = entry
 
         # Skip if unit is not in selected units (if filtering is active)
         if selected_units is not None and unit_id not in selected_units:
@@ -290,8 +306,11 @@ def extract_answers_from_pdf(pdf_path, course_id='level2_gym', selected_units=No
             'question': question_label,
             'answer': value_str,
             'course': course_id,
+            'order': order,
         })
 
+    # Return in natural unit -> question order (PDF field order is scrambled).
+    answers.sort(key=lambda a: a['order'])
     return answers
 
 
@@ -714,6 +733,7 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
             'answer_preview': a['answer'][:300] + ('...' if len(a['answer']) > 300 else ''),
             'answer_full': a['answer'],
             'word_count': len(a['answer'].split()),
+            'order': a.get('order', idx),
             **detection,
         }
         results.append(result)
@@ -726,8 +746,8 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
             'result': result,
         }) + '\n'
     
-    # Sort results by AI percentage for final summary
-    results.sort(key=lambda x: x.get('ai_percentage', 0), reverse=True)
+    # Sort results into natural unit -> question order for the final report
+    results.sort(key=lambda x: x.get('order', 0))
 
     # Calculate summary statistics based on classifications (all answers)
     ai_count = sum(1 for r in results if r.get('overall_classification') == 'AI')
@@ -794,6 +814,7 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
             'answer_full': r.get('answer_full', ''),  # Full answer text
             'overall_verdict': r.get('overall_verdict', ''),
             'low_confidence_flag': r.get('low_confidence_flag'),
+            'order': r.get('order', 0),
         })
 
     # Determine overall risk category based on classification distribution (backward compatibility)

@@ -221,11 +221,11 @@ def generate_pdf_report(results):
 
     # ── ANSWER SUMMARY TABLE (selected answers only) ─────────────────────
     elements.append(Paragraph('Answer-by-Answer Analysis', heading_style))
-    elements.append(Paragraph('<i>Sorted by AI Percentage (highest first)</i>', small_text))
+    elements.append(Paragraph('<i>Sorted by unit and question order</i>', small_text))
     elements.append(Spacer(1, 0.08 * inch))
 
-    # Sort answers by AI percentage (descending)
-    sorted_answers = sorted(answer_results, key=lambda x: x.get('ai_percentage', 0), reverse=True)
+    # Sort answers into natural unit -> question order (matches the workbook)
+    sorted_answers = sorted(answer_results, key=lambda x: x.get('order', 0))
 
     # Create detailed answer breakdown
     for idx, result in enumerate(sorted_answers, 1):
