@@ -1292,6 +1292,19 @@ def load_analysis_report(session_id):
         return None
 
 
+@app.route('/training-deck', methods=['GET'])
+def training_deck():
+    """Assessor briefing deck, served inline so the Help button opens it in a tab."""
+    deck = Path(__file__).parent / 'static' / 'AI_Detection_Report_Training_Deck.pdf'
+    if not deck.exists():
+        return jsonify({'error': 'Training deck not available.'}), 404
+    return Response(
+        deck.read_bytes(),
+        mimetype='application/pdf',
+        headers={'Content-Disposition': 'inline; filename="PT Academy - AI Detection Report - Assessor Briefing.pdf"'},
+    )
+
+
 @app.route('/report-preview/<session_id>', methods=['GET'])
 def report_preview(session_id):
     """Serve the same PDF inline so the UI can embed it.

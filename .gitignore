@@ -2,6 +2,9 @@
 __pycache__/
 *.pyc
 *.pyo
+# Learner workbooks and generated reports must never be committed.
 *.pdf
+# static/ holds app assets only - no learner data - so PDFs there do ship.
+!static/*.pdf
 analysis/__pycache__/
 .DS_Store

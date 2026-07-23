@@ -107,6 +107,60 @@
     .rpt-guide-row { grid-template-columns: 1fr; gap: 2px; }
   }
 
+  .help-btn {
+    display: inline-flex; align-items: center; gap: 2px;
+    font-size: 12.5px; font-weight: 700; text-decoration: none;
+    color: var(--r-ink); background: #fff;
+    border: 1px solid var(--r-rule); border-radius: 999px;
+    padding: 6px 14px; white-space: nowrap;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .help-btn:hover { border-color: var(--r-gold); background: rgba(198,169,6,0.1); }
+
+  .link-btn {
+    background: none; border: 0; padding: 0;
+    font-family: var(--font); font-size: 12px; font-weight: 700;
+    color: var(--r-ink); border-bottom: 1px solid var(--r-gold);
+    cursor: pointer; white-space: nowrap;
+  }
+  .link-btn:hover { color: var(--r-gold); }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(17,17,17,0.55);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 40px 20px; overflow-y: auto; z-index: 100;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background: #fff; border-radius: 10px; max-width: 940px; width: 100%;
+    padding: 24px 26px 28px;
+  }
+  .modal-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 4px; }
+  .modal-title { font-size: 19px; font-weight: 700; }
+  .modal-sub { font-size: 12.5px; color: var(--r-ink-soft); line-height: 1.55; margin-top: 5px; max-width: 68ch; }
+  .modal-close {
+    margin-left: auto; background: none; border: 0; cursor: pointer;
+    font-size: 20px; line-height: 1; color: var(--r-ink-muted); padding: 2px 6px;
+  }
+  .modal-close:hover { color: var(--r-ink); }
+  .cover-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 20px; }
+  .cover-card {
+    border: 1px solid var(--r-rule); border-radius: 8px; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .cover-card .cover-meta { margin-top: auto; }
+  /* Covers are a mix of landscape and portrait, so fit them into a common box
+     rather than letting card heights diverge by a factor of two. */
+  .cover-card img {
+    display: block; width: 100%; height: 300px;
+    object-fit: contain; object-position: center;
+    background: var(--r-surface); padding: 10px;
+  }
+  .cover-meta { padding: 11px 13px; border-top: 1px solid var(--r-rule); }
+  .cover-name { font-size: 13px; font-weight: 700; }
+  .cover-hint { font-size: 11.5px; color: var(--r-ink-muted); margin-top: 3px; line-height: 1.5; }
+  @media (max-width: 720px) { .cover-grid { grid-template-columns: 1fr; } }
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
@@ -805,7 +859,11 @@
     <div class="logo-text">PT Academy</div>
     <div class="logo-sub">AI Content Checker</div>
   </div>
-  <div class="header-badge">Built by PT Academy, Powered by ZeroGPT</div>
+  <div style="margin-left:auto; display:flex; align-items:center; gap:12px;">
+    <a class="help-btn" href="/training-deck" target="_blank" rel="noopener"
+       title="How to read the AI Detection Report">? &nbsp;Help</a>
+    <div class="header-badge">Built by PT Academy, Powered by ZeroGPT</div>
+  </div>
 </header>
 
 <main>
@@ -837,8 +895,9 @@
       <div class="up-step-head">
         <span class="up-step-n">2</span>
         <span class="up-step-title">Which qualification?</span>
-        <span class="up-step-hint">The portfolio version must match, or answers will be missed.</span>
+        <button type="button" class="link-btn" onclick="showCovers()">Which version do I have?</button>
       </div>
+      <p class="up-step-hint" style="margin: -6px 0 12px;">The version must match the workbook, or answers will be missed.</p>
       <div class="up-field">
         <label for="course-select">Qualification / portfolio</label>
         <select id="course-select" required>
@@ -876,6 +935,50 @@
     </div>
 
     <button class="btn-analyse" id="btn-analyse" disabled>Analyse workbook</button>
+  </div>
+
+  <!-- Portfolio version chooser: cover pages of each workbook, so an assessor
+       can match what is in front of them rather than guess from the name. -->
+  <div class="modal-backdrop" id="covers-modal" onclick="if(event.target===this) hideCovers()">
+    <div class="modal rpt" role="dialog" aria-modal="true" aria-labelledby="covers-title">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="covers-title">Which portfolio version do I have?</div>
+          <div class="modal-sub">Compare the front cover of the workbook you are about to upload with the covers below, then choose the matching option. Picking the wrong version means questions are missed, so the report will be short.</div>
+        </div>
+        <button class="modal-close" onclick="hideCovers()" aria-label="Close">✕</button>
+      </div>
+      <div class="cover-grid">
+        <div class="cover-card">
+          <img src="/static/covers/level2_gym_v2.png" alt="Level 2 older workbook cover">
+          <div class="cover-meta">
+            <div class="cover-name">Level 2 Gym Instructing (V2 Portfolio)</div>
+            <div class="cover-hint">Older design · grey cover · “Certificate in Planning and Delivering Gym-Based Exercise” · v.2022/02 · 603/5231/0</div>
+          </div>
+        </div>
+        <div class="cover-card">
+          <img src="/static/covers/level2_gym.png" alt="Level 2 newer workbook cover">
+          <div class="cover-meta">
+            <div class="cover-name">Level 2 Gym Instructing (V3 Portfolio)</div>
+            <div class="cover-hint">Newer design · photo cover · “Gym Instructing” · Units 1 to 6 · 603/5233/4</div>
+          </div>
+        </div>
+        <div class="cover-card">
+          <img src="/static/covers/level3_pt_v2.png" alt="Level 3 older workbook cover">
+          <div class="cover-meta">
+            <div class="cover-name">Level 3 Personal Training (V2 Portfolio)</div>
+            <div class="cover-hint">Older design · grey cover · “Certificate in Planning and Delivering Personal Training” · v.2022/03 · 603/5232/2</div>
+          </div>
+        </div>
+        <div class="cover-card">
+          <img src="/static/covers/level3_pt.png" alt="Level 3 newer workbook cover">
+          <div class="cover-meta">
+            <div class="cover-name">Level 3 Personal Training (V3 Portfolio)</div>
+            <div class="cover-hint">Newer design · photo cover · “Personal Training” · Units 7 to 10 · 603/5233/4</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- LOADING STATE -->
@@ -1044,6 +1147,10 @@ courseSelect.addEventListener('change', (e) => {
 
   updateAnalyseButton();
 });
+
+function showCovers() { document.getElementById('covers-modal').classList.add('show'); }
+function hideCovers() { document.getElementById('covers-modal').classList.remove('show'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideCovers(); });
 
 function setAnalysisMode(mode) {
   analysisMode = mode;
