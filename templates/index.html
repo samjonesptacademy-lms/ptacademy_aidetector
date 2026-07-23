@@ -804,13 +804,21 @@
           <div class="stat-num stat-high" id="stat-ai">—</div>
           <div class="stat-label">AI</div>
         </div>
-        <div class="stat-box" style="display:none;">
+        <div class="stat-box">
+          <div class="stat-num stat-medium" id="stat-mixed">—</div>
+          <div class="stat-label">Mixed</div>
+        </div>
+        <div class="stat-box">
           <div class="stat-num stat-medium" id="stat-ai-polished">—</div>
-          <div class="stat-label">AI Polished</div>
+          <div class="stat-label">Human + AI parts</div>
         </div>
         <div class="stat-box">
           <div class="stat-num stat-safe" id="stat-human">—</div>
           <div class="stat-label">Human</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="stat-unassessable" style="color:var(--muted)">—</div>
+          <div class="stat-label">Not Assessable</div>
         </div>
       </div>
 
@@ -819,8 +827,12 @@
         <div class="portfolio-score-title">📊 Portfolio Assessment Summary</div>
         <div class="portfolio-metrics">
           <div class="portfolio-metric">
-            <div class="portfolio-metric-value" id="portfolio-score" style="color:var(--accent)">—</div>
-            <div class="portfolio-metric-label">Average AI Percentage</div>
+            <div class="portfolio-metric-value" id="portfolio-flagged" style="color:var(--accent)">—</div>
+            <div class="portfolio-metric-label">Answers Flagged for Review</div>
+          </div>
+          <div class="portfolio-metric">
+            <div class="portfolio-metric-value" id="portfolio-assessed" style="color:var(--accent)">—</div>
+            <div class="portfolio-metric-label">Answers Assessed</div>
           </div>
         </div>
         <div id="quality-note-container"></div>
@@ -1155,31 +1167,36 @@ async function handleStreamingResponse(response) {
           const badge = document.getElementById('overall-badge');
           const summary = event.summary;
           badge.className = 'summary-risk-badge risk-badge-' + summary.overall_risk;
-          document.getElementById('overall-score').textContent = summary.avg_ai_percentage + '%';
+          // Headline figure is the share of answers needing review. A mean AI
+          // percentage is unstable here because most answers are short.
+          document.getElementById('overall-score').textContent = summary.flagged_pct + '%';
+          document.getElementById('overall-label').textContent = 'flagged';
 
-          // Determine heading based on AI percentage
-          const avgAI = summary.avg_ai_percentage;
-          let heading = 'Analysis Complete';
-          if (avgAI >= 65) {
-            heading = '⚠️ High AI Content Detected — Review Required';
-          } else if (avgAI >= 35) {
-            heading = '🔍 Moderate AI Content Detected';
-          } else if (avgAI >= 20) {
-            heading = '🔎 Some AI Content Detected — Worth Reviewing';
-          } else {
-            heading = '✅ Likely Human-Written';
-          }
-          document.getElementById('overall-heading').textContent = heading;
+          // Heading follows the banded portfolio risk, not a mean percentage.
+          const headings = {
+            'Detailed Review': '⚠️ Widespread AI Indicators — Detailed Review Required',
+            'Review Required': '🔍 AI Indicators Found — Review Flagged Answers',
+            'Spot Check': '🔎 Minor Indicators — Spot-Check Suggested',
+            'No Indicators': '✅ No AI Indicators Found',
+            'Insufficient Data': 'ℹ️ Not Enough Assessable Text to Score'
+          };
+          document.getElementById('overall-heading').textContent =
+            headings[summary.portfolio_risk] || 'Analysis Complete';
 
           document.getElementById('stat-total').textContent = summary.total_answers;
           document.getElementById('stat-ai').textContent = summary.ai_count;
+          document.getElementById('stat-mixed').textContent = summary.mixed_count;
           document.getElementById('stat-ai-polished').textContent = summary.ai_polished_count;
           document.getElementById('stat-human').textContent = summary.human_count;
+          document.getElementById('stat-unassessable').textContent = summary.unassessable_count;
 
           // Display portfolio score metrics
-          if (summary.portfolio_score !== undefined) {
+          if (summary.assessed_count !== undefined) {
             document.getElementById('portfolio-score-card').style.display = 'block';
-            document.getElementById('portfolio-score').textContent = summary.portfolio_score + '%';
+            document.getElementById('portfolio-flagged').textContent =
+              summary.flagged_count + ' of ' + summary.assessed_count;
+            document.getElementById('portfolio-assessed').textContent =
+              summary.assessed_count + ' of ' + summary.total_answers;
 
             // Display quality note if present
             const qualityContainer = document.getElementById('quality-note-container');
@@ -1369,25 +1386,47 @@ function buildAnswerCard(a, idx) {
   const previewAnswer = escapeHtml(a.answer_preview || '');
   const isLong = (a.answer_full || '').length > 300;
 
-  // Short answer confidence warning
+  // Answers Zero GPT could not judge are shown as not scored, and its raw
+  // verdict is withheld - displaying it would invite reading a result we have
+  // already declared unreliable.
+  const notAssessed = a.overall_classification === 'Insufficient Text'
+                   || a.overall_classification === 'Unknown';
+
   let confidenceWarning = '';
-  if (a.low_confidence_flag) {
+  if (notAssessed) {
+    confidenceWarning = `
+      <div style="margin-bottom: 12px; padding: 8px 12px; background: rgba(120,120,120,0.1); border-left: 3px solid var(--muted); border-radius: var(--radius);">
+        <div style="font-size: 11px; font-weight: 600; color: var(--muted);">Not assessed</div>
+        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">Too little text for Zero GPT to reach a reliable verdict. Excluded from the portfolio score.</div>
+      </div>
+    `;
+  } else if (a.low_confidence_flag) {
     confidenceWarning = `
       <div style="margin-bottom: 12px; padding: 8px 12px; background: rgba(245,166,35,0.1); border-left: 3px solid var(--amber); border-radius: var(--radius);">
         <div style="font-size: 11px; font-weight: 600; color: var(--amber);">⚠️ Low Confidence (Short Answer)</div>
-        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">This answer has fewer than 50 words. Detection confidence reduced by 30%.</div>
+        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">This answer has fewer than 50 words. Zero GPT is less reliable on short text.</div>
       </div>
     `;
   }
 
-  const verdictHtml = a.overall_verdict
+  const verdictHtml = (a.overall_verdict && !notAssessed)
     ? `<div class="verdict-box verdict-${a.risk_level ? a.risk_level.toLowerCase() : (a.risk || 'low')}">${escapeHtml(a.overall_verdict)}</div>`
     : '';
+
+  // Sentences Zero GPT itself flagged - the most directly actionable output.
+  const flaggedSentences = a.ai_flagged_sentences || [];
+  const flaggedHtml = (flaggedSentences.length && !notAssessed) ? `
+    <div style="margin: 10px 0; padding: 8px 12px; background: rgba(255,79,106,0.08); border-left: 3px solid var(--red, #ff4f6a); border-radius: var(--radius);">
+      <div style="font-size: 11px; font-weight: 600; color: var(--red, #ff4f6a); margin-bottom: 4px;">Sentences flagged as AI-generated</div>
+      ${flaggedSentences.slice(0, 10).map(t =>
+        `<div style="font-size: 11px; color: var(--muted); margin-top: 3px;">• ${escapeHtml(String(t))}</div>`
+      ).join('')}
+    </div>` : '';
 
   card.innerHTML = `
     <div class="card-header" onclick="toggleCard(this)">
       <span class="classification-badge ${classInfo.class}">${classInfo.label}</span>
-      <span class="card-score ${scoreClass}">${ai_pct}%</span>
+      <span class="card-score ${notAssessed ? '' : scoreClass}" title="AI Score — how much of the answer reads as AI-generated. Not a probability, and not what the verdict is derived from.">${notAssessed ? '—' : ai_pct + '%'}</span>
       <span class="card-question">${escapeHtml(a.question)}${a.low_confidence_flag ? ' ⚠️' : ''}</span>
       <span class="card-chevron" id="chev-${idx}">▼</span>
     </div>
@@ -1395,6 +1434,7 @@ function buildAnswerCard(a, idx) {
       <div class="card-unit-label">${escapeHtml(a.unit)}</div>
       ${confidenceWarning}
       ${verdictHtml}
+      ${flaggedHtml}
       <div class="answer-text" id="ans-${idx}">${previewAnswer}</div>
       ${isLong ? `<button class="answer-toggle" onclick="toggleFullAnswer(${idx}, this)">Show full answer ↓</button>` : ''}
       ${sentenceBreakdownHtml}

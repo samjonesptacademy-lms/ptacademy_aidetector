@@ -1,357 +1,705 @@
 """
 PDF Report Generator for PT Detector Analysis Results
 
-Generates a one-page PDF report with:
-- Portfolio score card with AI percentage, confidence, and risk level
-- Risk summary table (count by risk level)
-- Answer summary table (unit, question, risk level, AI%, confidence)
-- Assessor recommendations based on portfolio risk
+Structure:
+- Summary page: review level, headline figures, verdict mix, what to do
+- Flagged answers: one card each, with the sentences the detector identified
+- Human-classified answers: compact table (there are usually dozens; a full card
+  for each buried the flagged ones)
+- Not assessed: compact table
+
+Colour encodes *review priority*, not classification - three tiers plus a neutral
+for "no result". The precise classification is always carried by its text label,
+so colour never has to be read on its own. The tiers were validated for colour
+vision deficiency; green was rejected for the "clear" tier because green against
+the attention orange fails protanopia separation, hence blue.
 """
 
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
+from xml.sax.saxutils import escape
+
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import (
+    Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+)
+
+# ── DESIGN TOKENS ─────────────────────────────────────────────────────────────
+
+BRAND_GOLD = '#c6a906'
+INK = '#111111'          # primary text
+INK_SOFT = '#55534d'     # secondary text
+INK_MUTED = '#8a8880'    # captions
+RULE = '#dedbd2'         # hairlines
+SURFACE = '#f7f6f2'      # tinted panel
+WHITE = '#ffffff'
+
+# Review-priority palette, validated on a white surface: lightness band PASS,
+# chroma floor PASS, CVD separation PASS (worst adjacent dE 13.9 deutan),
+# normal-vision floor PASS (15.7). The contrast WARN on the attention step is
+# discharged by always pairing it with a visible text label.
+PRIORITY_CRITICAL = '#d03b3b'   # AI
+PRIORITY_ATTENTION = '#ec835a'  # Mixed / Human-with-AI-parts
+PRIORITY_CLEAR = '#2a78d6'      # Human
+PRIORITY_NONE = '#9a9a94'       # not assessed (neutral, not a data colour)
+
+# classification -> (priority colour, badge label)
+CLASSIFICATION_STYLE = {
+    'AI': (PRIORITY_CRITICAL, 'AI'),
+    'Mixed': (PRIORITY_ATTENTION, 'MIXED'),
+    'AI Polished': (PRIORITY_ATTENTION, 'HUMAN + AI PARTS'),
+    'Human': (PRIORITY_CLEAR, 'HUMAN'),
+    'Insufficient Text': (PRIORITY_NONE, 'NOT ASSESSED'),
+    'Unknown': (PRIORITY_NONE, 'NO RESULT'),
+}
+
+REVIEW_LEVEL_STYLE = {
+    'Detailed Review': (PRIORITY_CRITICAL, 'Detailed Review Required',
+                        'Widespread AI indicators — review the whole portfolio.'),
+    'Review Required': (PRIORITY_ATTENTION, 'Review Flagged Answers',
+                        'AI indicators found in specific answers.'),
+    'Spot Check': (BRAND_GOLD, 'Spot-Check Suggested',
+                   'Minor indicators only; no outright AI verdicts.'),
+    'No Indicators': (PRIORITY_CLEAR, 'No AI Indicators Found',
+                      'Every assessed answer was classified as human-written.'),
+    'Insufficient Data': (PRIORITY_NONE, 'Not Enough Assessable Text',
+                          'Too few answers could be assessed to score the portfolio.'),
+}
+
+UNASSESSED = ('Insufficient Text', 'Unknown')
+
+# Render the Human-classified and Not-assessed sections as full cards (verdict
+# and answer text shown for every answer) rather than as a compact table. The
+# table is far shorter, but full cards keep the report a complete record of the
+# portfolio. Set True for the compact treatment.
+COMPACT_ROUTINE_SECTIONS = False
 
 
 def get_risk_color(risk_level):
-    """Return colour for risk level badge."""
-    colors_map = {
-        'High': colors.red,
-        'Medium': colors.orange,
-        'Low': colors.yellow,
-        'Human': colors.green,
-    }
-    return colors_map.get(risk_level, colors.grey)
+    """Return colour for a risk level. Retained for backwards compatibility."""
+    return colors.HexColor({
+        'High': PRIORITY_CRITICAL,
+        'Medium': PRIORITY_ATTENTION,
+        'Low': BRAND_GOLD,
+        'Human': PRIORITY_CLEAR,
+    }.get(risk_level, PRIORITY_NONE))
+
+
+def _styles():
+    """Paragraph styles used throughout the report."""
+    base = getSampleStyleSheet()
+    s = {}
+    s['title'] = ParagraphStyle(
+        'Title', parent=base['Normal'], fontName='Helvetica-Bold', fontSize=17,
+        textColor=colors.HexColor(INK), leading=20, spaceAfter=1)
+    s['subtitle'] = ParagraphStyle(
+        'Subtitle', parent=base['Normal'], fontName='Helvetica', fontSize=8.5,
+        textColor=colors.HexColor(INK_SOFT), leading=12)
+    s['section'] = ParagraphStyle(
+        'Section', parent=base['Normal'], fontName='Helvetica-Bold', fontSize=12,
+        textColor=colors.HexColor(INK), leading=15)
+    s['eyebrow'] = ParagraphStyle(
+        'Eyebrow', parent=base['Normal'], fontName='Helvetica-Bold', fontSize=6.5,
+        textColor=colors.HexColor(INK_MUTED), leading=9)
+    s['caption'] = ParagraphStyle(
+        'Caption', parent=base['Normal'], fontName='Helvetica', fontSize=7.5,
+        textColor=colors.HexColor(INK_MUTED), leading=10.5)
+    s['body'] = ParagraphStyle(
+        'Body', parent=base['Normal'], fontName='Helvetica', fontSize=8.5,
+        textColor=colors.HexColor(INK), leading=12)
+    s['bodysoft'] = ParagraphStyle(
+        'BodySoft', parent=base['Normal'], fontName='Helvetica', fontSize=8,
+        textColor=colors.HexColor(INK_SOFT), leading=11)
+    s['question'] = ParagraphStyle(
+        'Question', parent=base['Normal'], fontName='Helvetica-Bold', fontSize=9.5,
+        textColor=colors.HexColor(INK), leading=12.5)
+    s['answer'] = ParagraphStyle(
+        'Answer', parent=base['Normal'], fontName='Helvetica', fontSize=8,
+        textColor=colors.HexColor(INK_SOFT), leading=11)
+    s['flagged'] = ParagraphStyle(
+        'Flagged', parent=base['Normal'], fontName='Helvetica', fontSize=8,
+        textColor=colors.HexColor(PRIORITY_CRITICAL), leading=11, leftIndent=7)
+    s['statnum'] = ParagraphStyle(
+        'StatNum', parent=base['Normal'], fontName='Helvetica-Bold', fontSize=19,
+        textColor=colors.HexColor(INK), leading=21)
+    s['statlabel'] = ParagraphStyle(
+        'StatLabel', parent=base['Normal'], fontName='Helvetica', fontSize=7.5,
+        textColor=colors.HexColor(INK_MUTED), leading=10)
+    s['banner'] = ParagraphStyle(
+        'Banner', parent=base['Normal'], fontName='Helvetica-Bold', fontSize=14,
+        textColor=colors.HexColor(INK), leading=17)
+    s['bannersub'] = ParagraphStyle(
+        'BannerSub', parent=base['Normal'], fontName='Helvetica', fontSize=8.5,
+        textColor=colors.HexColor(INK_SOFT), leading=11)
+    s['th'] = ParagraphStyle(
+        'TH', parent=base['Normal'], fontName='Helvetica-Bold', fontSize=7,
+        textColor=colors.HexColor(INK_MUTED), leading=9)
+    s['td'] = ParagraphStyle(
+        'TD', parent=base['Normal'], fontName='Helvetica', fontSize=8,
+        textColor=colors.HexColor(INK), leading=10.5)
+    return s
+
+
+def _footer(canvas, doc, learner_name):
+    """Running footer: learner on the left, page number on the right."""
+    canvas.saveState()
+    canvas.setFont('Helvetica', 7)
+    canvas.setFillColor(colors.HexColor(INK_MUTED))
+    y = 0.42 * inch
+    canvas.setStrokeColor(colors.HexColor(RULE))
+    canvas.setLineWidth(0.5)
+    canvas.line(doc.leftMargin, y + 12, doc.width + doc.leftMargin, y + 12)
+    canvas.drawString(doc.leftMargin, y,
+                      f'PT Academy AI Detection Report — {learner_name}')
+    canvas.drawRightString(doc.width + doc.leftMargin, y,
+                           f'Page {canvas.getPageNumber()}')
+    canvas.restoreState()
+
+
+def _stat_tile(s, value, label, accent=None):
+    """A headline figure with its caption."""
+    num_style = s['statnum']
+    if accent:
+        num_style = ParagraphStyle('StatNumAccent', parent=num_style,
+                                   textColor=colors.HexColor(accent))
+    return [Paragraph(str(value), num_style), Paragraph(label, s['statlabel'])]
+
+
+def _distribution_bar(dist, total, width):
+    """Stacked bar of the verdict mix.
+
+    Segments carry a 2pt surface gap and every one is named in the legend
+    beneath, so colour never carries meaning unaided.
+    """
+    segments = [(c, col) for _, c, col in dist if c > 0]
+    if not segments or not total:
+        return None
+
+    gap = 2
+    available = width - gap * max(0, len(segments) - 1)
+    widths, cells = [], []
+    style = [
+        ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]
+    col = 0
+    for i, (count, colour) in enumerate(segments):
+        if i:
+            widths.append(gap)
+            cells.append('')
+            col += 1
+        widths.append(max(3, available * count / total))
+        cells.append('')
+        style.append(('BACKGROUND', (col, 0), (col, 0), colors.HexColor(colour)))
+        col += 1
+
+    bar = Table([cells], colWidths=widths, rowHeights=[9])
+    bar.setStyle(TableStyle(style))
+    return bar
+
+
+def _legend(s, dist, total, width):
+    """Swatch + label + count + share, beneath the bar."""
+    rows = []
+    for label, count, colour in dist:
+        share = f'{round(count / total * 100)}%' if total else '—'
+        swatch = Table([['']], colWidths=[7], rowHeights=[7])
+        swatch.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, 0), colors.HexColor(colour)),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        rows.append([swatch, Paragraph(label, s['td']),
+                     Paragraph(f'<b>{count}</b>', s['td']),
+                     Paragraph(share, s['bodysoft'])])
+
+    t = Table(rows, colWidths=[0.16 * inch, width - 1.36 * inch, 0.5 * inch, 0.7 * inch])
+    t.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (2, 0), (3, -1), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5), ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor(RULE)),
+    ]))
+    return t
+
+
+def _badge(text, colour):
+    """Filled pill carrying the classification label."""
+    p = ParagraphStyle('BadgeText', fontName='Helvetica-Bold', fontSize=6.5,
+                       textColor=colors.HexColor(WHITE), leading=8, alignment=TA_CENTER)
+    width = max(0.5 * inch, 0.05 * inch * len(text) + 0.14 * inch)
+    t = Table([[Paragraph(text, p)]], colWidths=[width])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor(colour)),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4), ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5), ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    return t, width
 
 
 def generate_pdf_report(results):
-    """
-    Generate a PDF report from analysis results.
-
-    Args:
-        results: Dict containing:
-            - results: List of answer analysis results
-            - summary: Portfolio summary with portfolio_score, portfolio_confidence, portfolio_risk, etc.
-
-    Returns:
-        bytes: PDF document as bytes
-    """
-    # Extract data
+    """Generate the analysis report as PDF bytes."""
     answer_results = results.get('results', [])
     summary = results.get('summary', {})
     learner_name = results.get('learner_name', 'Unknown Learner')
     assessor_name = results.get('assessor_name', 'Unknown Assessor')
-    analysis_mode = results.get('analysis_mode', 'full')
+    course_name = results.get('course_name', '')
     analysis_mode_label = results.get('analysis_mode_label', 'Full Workbook Analysis')
-    selected_units = results.get('selected_units', [])
 
-    portfolio_score = summary.get('portfolio_score', 0)
-    portfolio_confidence = summary.get('portfolio_confidence', 0.5)
     portfolio_risk = summary.get('portfolio_risk', 'Unknown')
     short_answer_count = summary.get('short_answer_count', 0)
-    short_answer_pct = summary.get('short_answer_pct', 0)
     quality_note = summary.get('quality_note', '')
-    risk_breakdown = summary.get('risk_breakdown', {})
 
-    # Create PDF document
-    pdf_buffer = BytesIO()
+    total_answers = len(answer_results)
+    assessed_count = summary.get('assessed_count', total_answers)
+    unassessable_count = summary.get('unassessable_count', 0)
+    flagged_count = summary.get('flagged_count', 0)
+    flagged_pct = summary.get('flagged_pct', 0)
+    enough_to_score = summary.get('enough_to_score', True)
+    ai_count = summary.get('ai_count', 0)
+    mixed_count = summary.get('mixed_count', 0)
+    ai_polished_count = summary.get('ai_polished_count', 0)
+    human_count = summary.get('human_count', 0)
+
+    s = _styles()
+    buf = BytesIO()
     doc = SimpleDocTemplate(
-        pdf_buffer,
-        pagesize=letter,
-        rightMargin=0.5 * inch,
-        leftMargin=0.5 * inch,
-        topMargin=0.5 * inch,
-        bottomMargin=0.5 * inch,
+        buf, pagesize=letter,
+        leftMargin=0.6 * inch, rightMargin=0.6 * inch,
+        topMargin=0.5 * inch, bottomMargin=0.75 * inch,
+        title=f'AI Detection Report — {learner_name}', author='PT Academy',
     )
+    W = doc.width
+    el = []
 
-    # PT Academy Brand Colors
-    PRIMARY_COLOR = '#030303'      # Dark/Black
-    GOLD_COLOR = '#c6a906'          # Gold accent
-    LIGHT_GRAY = '#d8d8d8'          # Light gray
-    WHITE = '#ffffff'               # White
+    # ── MASTHEAD ─────────────────────────────────────────────────────────────
+    generated = datetime.now().strftime('%d %B %Y at %H:%M')
+    meta_lines = [
+        f'<b>Learner:</b> {escape(learner_name)}',
+        f'<b>Assessor:</b> {escape(assessor_name)}',
+    ]
+    if course_name:
+        meta_lines.append(f'<b>Course:</b> {escape(course_name)}')
+    meta_lines.append(f'{escape(analysis_mode_label)} · {generated}')
 
-    # Custom styles with PT Academy branding
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=20,
-        textColor=colors.HexColor(PRIMARY_COLOR),
-        spaceAfter=6,
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold',
-    )
-    heading_style = ParagraphStyle(
-        'CustomHeading',
-        parent=styles['Heading2'],
-        fontSize=12,
-        textColor=colors.HexColor(WHITE),
-        spaceAfter=8,
-        spaceBefore=8,
-        fontName='Helvetica-Bold',
-    )
-    small_text = ParagraphStyle(
-        'SmallText',
-        parent=styles['Normal'],
-        fontSize=8,
-        textColor=colors.HexColor('#666666'),
-    )
+    head_left = [Paragraph('PT ACADEMY', s['eyebrow']),
+                 Paragraph('AI Detection Report', s['title']),
+                 Spacer(1, 3),
+                 Paragraph('<br/>'.join(meta_lines), s['subtitle'])]
 
-    # Build document content
-    elements = []
-
-    # ── HEADER WITH LOGO ────────────────────────────────────────────────────
-    # Try to add logo if it exists
     logo_path = Path(__file__).parent.parent / 'logo.png'
+    placed = False
     if logo_path.exists():
         try:
-            logo = Image(str(logo_path), width=1.2*inch, height=1.2*inch)
-            elements.append(logo)
-            elements.append(Spacer(1, 0.1 * inch))
-        except Exception as e:
-            print(f"Warning: Could not load logo: {e}")
+            head = Table(
+                [[head_left, Image(str(logo_path), width=0.62 * inch, height=0.62 * inch)]],
+                colWidths=[W - 0.8 * inch, 0.8 * inch])
+            head.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            el.append(head)
+            placed = True
+        except Exception:
+            placed = False
+    if not placed:
+        el.extend(head_left)
 
-    title = Paragraph('PT Academy AI Detection Report', title_style)
-    elements.append(title)
+    el.append(Spacer(1, 12))
 
-    learner_para = Paragraph(f'<b>Learner:</b> {learner_name}', ParagraphStyle('LearnerName', parent=styles['Normal'], fontSize=11, textColor=colors.HexColor(PRIMARY_COLOR), spaceAfter=2, fontName='Helvetica-Bold'))
-    elements.append(learner_para)
-
-    assessor_para = Paragraph(f'<b>Assessor:</b> {assessor_name}', ParagraphStyle('AssessorName', parent=styles['Normal'], fontSize=11, textColor=colors.HexColor(PRIMARY_COLOR), spaceAfter=4, fontName='Helvetica-Bold'))
-    elements.append(assessor_para)
-
-    analysis_date = datetime.now().strftime('%d %B %Y at %H:%M')
-    date_para = Paragraph(f'<i>Report Generated: {analysis_date}</i>', small_text)
-    elements.append(date_para)
-
-    # Recommendation headline based on portfolio score
-    if portfolio_score >= 65:
-        recommendation_headline = '⚠️ High AI Content Detected — Review Required'
-        recommendation_color = colors.HexColor('#ff4f6a')  # Red
-    elif portfolio_score >= 35:
-        recommendation_headline = '🔍 Moderate AI Content Detected'
-        recommendation_color = colors.HexColor('#c6a906')  # Gold/Amber
-    elif portfolio_score >= 20:
-        recommendation_headline = '🔎 Some AI Content Detected — Worth Reviewing'
-        recommendation_color = colors.HexColor('#c6a906')  # Gold/Amber
-    else:
-        recommendation_headline = '✅ Likely Human-Written'
-        recommendation_color = colors.HexColor('#22c97a')  # Green
-
-    recommendation_para = Paragraph(
-        f'<b>{recommendation_headline}</b>',
-        ParagraphStyle('Recommendation', parent=styles['Normal'], fontSize=12, textColor=recommendation_color, spaceAfter=4, fontName='Helvetica-Bold')
-    )
-    elements.append(recommendation_para)
-
-    elements.append(Spacer(1, 0.12 * inch))
-
-    # ── ANALYSIS MODE INFO ──────────────────────────────────────────────────
-    if analysis_mode == 'partial' and selected_units:
-        analysis_mode_para = Paragraph(
-            f'<b>Analysis Type:</b> Partial Analysis',
-            ParagraphStyle('AnalysisMode', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor(PRIMARY_COLOR), spaceAfter=2, fontName='Helvetica-Bold')
-        )
-        elements.append(analysis_mode_para)
-
-        units_para = Paragraph(
-            f'<b>Units Analysed:</b> {analysis_mode_label.replace("Partial Analysis - Units: ", "")}',
-            ParagraphStyle('UnitsInfo', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor(PRIMARY_COLOR), spaceAfter=4)
-        )
-        elements.append(units_para)
-    else:
-        analysis_mode_para = Paragraph(
-            f'<b>Analysis Type:</b> Full Workbook Analysis',
-            ParagraphStyle('AnalysisMode', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor(PRIMARY_COLOR), spaceAfter=4, fontName='Helvetica-Bold')
-        )
-        elements.append(analysis_mode_para)
-
-    elements.append(Spacer(1, 0.12 * inch))
-
-    # ── PORTFOLIO SCORE CARD ────────────────────────────────────────────
-    elements.append(Paragraph('Portfolio Score', heading_style))
-
-    # Count AI and Human classified answers
-    ai_count = sum(1 for r in answer_results if r.get('overall_classification') == 'AI')
-    human_count = sum(1 for r in answer_results if r.get('overall_classification') == 'Human')
-
-    # Score card table - simplified to match frontend
-    score_card_data = [
-        ['Metric', 'Value'],
-        ['Average AI Percentage', f'{portfolio_score}%'],
-        ['Total Answers Analysed', f'{len(answer_results)}'],
-        ['AI Classified', f'{ai_count}'],
-        ['Human Classified', f'{human_count}'],
-        ['Short Answers (<50 words)', f'{short_answer_count} ({short_answer_pct}%)'],
-    ]
-
-    score_table = Table(score_card_data, colWidths=[2.5 * inch, 2.0 * inch])
-    score_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(GOLD_COLOR)),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor(PRIMARY_COLOR)),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 11),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-        ('TOPPADDING', (0, 0), (-1, 0), 8),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor(WHITE)),
-        ('GRID', (0, 0), (-1, -1), 1.5, colors.HexColor(GOLD_COLOR)),
-        ('FONTSIZE', (0, 1), (-1, -1), 10),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor(WHITE), colors.HexColor(LIGHT_GRAY)]),
+    # ── REVIEW LEVEL ─────────────────────────────────────────────────────────
+    accent, level_title, level_sub = REVIEW_LEVEL_STYLE.get(
+        portfolio_risk, (PRIORITY_NONE, str(portfolio_risk), ''))
+    banner_body = [Paragraph('PORTFOLIO VERDICT', s['eyebrow']), Spacer(1, 2),
+                   Paragraph(escape(level_title), s['banner'])]
+    if level_sub:
+        banner_body.append(Paragraph(escape(level_sub), s['bannersub']))
+    banner = Table([['', banner_body]], colWidths=[5, W - 5])
+    banner.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, 0), colors.HexColor(accent)),
+        ('BACKGROUND', (1, 0), (1, 0), colors.HexColor(SURFACE)),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (0, 0), 0), ('RIGHTPADDING', (0, 0), (0, 0), 0),
+        ('LEFTPADDING', (1, 0), (1, 0), 11), ('RIGHTPADDING', (1, 0), (1, 0), 11),
+        ('TOPPADDING', (0, 0), (-1, -1), 9), ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
     ]))
-    elements.append(score_table)
-    elements.append(Spacer(1, 0.12 * inch))
+    el.append(banner)
+    el.append(Spacer(1, 13))
 
-    # Quality note if present
-    if quality_note:
-        quality_para = Paragraph(
-            f'<b>⚠️ Quality Note:</b> {quality_note}',
-            ParagraphStyle('QualityNote', parent=styles['Normal'], fontSize=8, textColor=colors.red)
-        )
-        elements.append(quality_para)
-        elements.append(Spacer(1, 0.1 * inch))
+    # ── HEADLINE FIGURES ─────────────────────────────────────────────────────
+    tiles = [
+        _stat_tile(s, flagged_count,
+                   f'Flagged for review<br/>{flagged_pct}% of {assessed_count} assessed',
+                   accent=accent if flagged_count else None),
+        _stat_tile(s, ai_count, 'Outright AI verdicts',
+                   accent=PRIORITY_CRITICAL if ai_count else None),
+        _stat_tile(s, mixed_count + ai_polished_count, 'Mixed or partial indicators'),
+        _stat_tile(s, f'{assessed_count}/{total_answers}', 'Answers assessed'),
+    ]
+    tile_table = Table([tiles], colWidths=[W / 4] * 4)
+    tile_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (0, 0), 0),
+        ('LEFTPADDING', (1, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('LINEBEFORE', (1, 0), (-1, -1), 0.5, colors.HexColor(RULE)),
+    ]))
+    el.append(tile_table)
+    el.append(Spacer(1, 15))
 
+    # ── VERDICT MIX ──────────────────────────────────────────────────────────
+    dist = [
+        ('AI', ai_count, PRIORITY_CRITICAL),
+        ('Mixed signals', mixed_count, PRIORITY_ATTENTION),
+        ('Human, may include AI parts', ai_polished_count, PRIORITY_ATTENTION),
+        ('Human', human_count, PRIORITY_CLEAR),
+        ('Not assessed — too little text', unassessable_count, PRIORITY_NONE),
+    ]
+    bar_dist = [
+        ('AI', ai_count, PRIORITY_CRITICAL),
+        ('Needs a look', mixed_count + ai_polished_count, PRIORITY_ATTENTION),
+        ('Human', human_count, PRIORITY_CLEAR),
+        ('Not assessed', unassessable_count, PRIORITY_NONE),
+    ]
+    el.append(Paragraph('VERDICT MIX', s['eyebrow']))
+    el.append(Spacer(1, 4))
+    bar = _distribution_bar(bar_dist, total_answers, W)
+    if bar:
+        el.append(bar)
+        el.append(Spacer(1, 6))
+    el.append(_legend(s, dist, total_answers, W))
+    el.append(Spacer(1, 13))
 
-    # ── ANSWER-BY-ANSWER ANALYSIS ────────────────────────────────────────
-    elements.append(Paragraph('Answer-by-Answer Analysis', heading_style))
-    elements.append(Spacer(1, 0.08 * inch))
-
-    # Split answers into those needing review (anything not classified Human)
-    # and Human-classified answers. Each group is shown in natural unit ->
-    # question order so it reads like the workbook.
-    needs_review = sorted(
-        [r for r in answer_results if r.get('overall_classification') != 'Human'],
-        key=lambda x: x.get('order', 0)
-    )
-    human_answers = sorted(
-        [r for r in answer_results if r.get('overall_classification') == 'Human'],
-        key=lambda x: x.get('order', 0)
-    )
-
-    section_heading_style = ParagraphStyle(
-        'SectionHeading', parent=styles['Normal'], fontSize=11,
-        textColor=colors.HexColor(PRIMARY_COLOR), spaceBefore=6, spaceAfter=2,
-        fontName='Helvetica-Bold'
-    )
-
-    def render_answer(idx, result, is_last):
-        unit = result.get('unit', 'Unknown')
-        question = result.get('question', '')
-        answer_text = result.get('answer_full', '')  # Full answer text from storage
-        ai_pct = result.get('ai_percentage', 0)
-        feedback = result.get('feedback', 'No feedback available')  # Zero GPT feedback
-        classification = result.get('overall_classification', 'Unknown')
-
-        # Create answer section - use full question (no truncation)
-        answer_heading = Paragraph(
-            f'<b>{idx}. {unit}</b><br/><b>Question:</b> {question}',
-            ParagraphStyle('AnswerHeading', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor(GOLD_COLOR), spaceAfter=6, leading=11, fontName='Helvetica-Bold')
-        )
-        elements.append(answer_heading)
-
-        # AI Score and Classification
-        score_text = Paragraph(
-            f'<b>AI Probability:</b> <b>{ai_pct}%</b> | <b>Classification:</b> {classification}',
-            ParagraphStyle('ScoreText', parent=styles['Normal'], fontSize=9, spaceAfter=2, fontName='Helvetica-Bold', textColor=colors.HexColor(PRIMARY_COLOR))
-        )
-        elements.append(score_text)
-
-        # Feedback from Zero GPT
-        feedback_text = Paragraph(
-            f'<b>Verdict:</b> <i>{feedback}</i>',
-            ParagraphStyle('FeedbackText', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor(PRIMARY_COLOR), spaceAfter=4)
-        )
-        elements.append(feedback_text)
-
-        # Answer text (truncate if extremely long to fit on page)
-        answer_preview = answer_text[:1000] + '...' if len(answer_text) > 1000 else answer_text
-        answer_para = Paragraph(
-            f"<b>Learner's Answer:</b> {answer_preview}",
-            ParagraphStyle('AnswerText', parent=styles['Normal'], fontSize=7, spaceAfter=8, leading=9)
-        )
-        elements.append(answer_para)
-
-        # Add divider between answers (except last one in the group)
-        if not is_last:
-            elements.append(Spacer(1, 0.06 * inch))
-            elements.append(Paragraph('─' * 80, small_text))
-            elements.append(Spacer(1, 0.06 * inch))
-
-    def render_section(title, subtitle, group, start_idx):
-        elements.append(Paragraph(title, section_heading_style))
-        elements.append(Paragraph(f'<i>{subtitle}</i>', small_text))
-        elements.append(Spacer(1, 0.08 * inch))
-        for offset, result in enumerate(group):
-            render_answer(start_idx + offset, result, is_last=(offset == len(group) - 1))
-        elements.append(Spacer(1, 0.12 * inch))
-        return start_idx + len(group)
-
-    next_idx = 1
-    if needs_review:
-        next_idx = render_section(
-            'Flagged',
-            f'{len(needs_review)} answer(s) not classified as Human (AI / Mixed / AI Polished) — in unit and question order',
-            needs_review, next_idx
-        )
-    if human_answers:
-        next_idx = render_section(
-            'Human-Classified Answers',
-            f'{len(human_answers)} answer(s) classified as Human — in unit and question order',
-            human_answers, next_idx
-        )
-    if not needs_review and not human_answers:
-        elements.append(Paragraph('No answers were analysed.', small_text))
-
-    elements.append(Spacer(1, 0.12 * inch))
-
-    # ── RECOMMENDATIONS ────────────────────────────────────────────────
-    elements.append(Paragraph('Assessor Recommendations', heading_style))
-
-    if portfolio_score >= 65:
-        recommendation = (
-            '<b>⚠️ High AI Content (≥65%):</b> This portfolio shows significant evidence of AI-generated content. '
-            'Please review all answers, especially those with high AI percentages. '
-            'Consider requesting evidence of independent work through additional questioning or practical assessment.'
-        )
-    elif portfolio_score >= 35:
-        recommendation = (
-            '<b>🔍 Moderate AI Content (35-64%):</b> This portfolio contains some AI-generated content. '
-            'Review answers with higher AI percentages carefully. '
-            'Discuss findings with the learner to verify understanding and authenticity of work.'
-        )
-    elif portfolio_score >= 20:
-        recommendation = (
-            '<b>🔎 Some AI Content (20-34%):</b> This portfolio shows minor AI indicators. '
-            'The work appears mostly human-written with some potential AI assistance. '
-            'Monitor flagged answers and discuss with learner if needed.'
-        )
+    # ── WHAT TO DO ───────────────────────────────────────────────────────────
+    if portfolio_risk == 'Insufficient Data':
+        rec = (f'Only {assessed_count} of {total_answers} answers contained enough text for '
+               'the detector to judge — too few to score the portfolio. Treat the individual '
+               'verdicts as indicative only and rely on your own judgement.')
+    elif portfolio_risk == 'Detailed Review':
+        rec = (f'{ai_count} of {assessed_count} assessed answers carry an outright AI verdict — '
+               'enough to be a pattern rather than isolated results. Review the whole portfolio, '
+               'not only the flagged answers, and consider verifying understanding through '
+               'additional questioning or practical assessment.')
+    elif portfolio_risk == 'Review Required':
+        rec = (f'{ai_count} of {assessed_count} assessed answers carry an AI verdict, and '
+               f'{flagged_count} in total were not classified as plainly human-written. Read '
+               'each flagged answer — where specific sentences were identified they are '
+               'listed with it — and judge whether the writing matches the learner\'s work '
+               'elsewhere.')
+    elif portfolio_risk == 'Spot Check':
+        rec = (f'No answer carries an outright AI verdict, but {flagged_count} of '
+               f'{assessed_count} showed mixed or partial indicators. A spot-check of the '
+               'flagged answers is sufficient.')
     else:
-        recommendation = (
-            '<b>✅ Likely Human-Written (<20%):</b> All answers appear to be genuine human-written work. '
-            'Portfolio shows strong integrity with no significant AI detection signals.'
-        )
+        rec = ('Every assessed answer was classified as human-written, with no AI or '
+               'mixed-signal verdicts.')
 
-    rec_para = Paragraph(recommendation, styles['Normal'])
-    elements.append(rec_para)
+    notes = []
+    if quality_note:
+        notes.append(escape(quality_note))
+    elif short_answer_count and portfolio_risk != 'Insufficient Data':
+        notes.append(f'{short_answer_count} of {total_answers} answers are under 50 words; '
+                     'detection is less reliable on short text.')
+    notes.append('There is no overall portfolio percentage: averaging verdicts produces a '
+                 'figure with no real meaning and invites being read as a grade. Use the review '
+                 'level above and the individual verdicts below.')
+    notes.append('AI detection is indicative, not conclusive. These results identify answers '
+                 'worth reading closely; they are not evidence of misconduct on their own and '
+                 'should be weighed alongside the learner\'s other work and your professional '
+                 'judgement.')
 
-    elements.append(Spacer(1, 0.12 * inch))
+    action = Table([[[Paragraph('WHAT TO DO', s['eyebrow']), Spacer(1, 4),
+                      Paragraph(rec, s['body']), Spacer(1, 6),
+                      Paragraph(' '.join(notes), s['caption'])]]], colWidths=[W])
+    action.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor(SURFACE)),
+        ('LEFTPADDING', (0, 0), (-1, -1), 11), ('RIGHTPADDING', (0, 0), (-1, -1), 11),
+        ('TOPPADDING', (0, 0), (-1, -1), 9), ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
+        ('LINEABOVE', (0, 0), (-1, 0), 2, colors.HexColor(BRAND_GOLD)),
+    ]))
+    el.append(action)
+    el.append(Spacer(1, 12))
 
-    # ── FOOTER ──────────────────────────────────────────────────────────
-    footer_text = (
-        '<font size="6"><i>This report was generated by PT Detector, an AI detection system using Zero GPT AI detection. '
-        'Results should be considered alongside other assessment evidence and learner context.</i></font>'
-    )
-    footer_para = Paragraph(footer_text, styles['Normal'])
-    elements.append(footer_para)
+    # Each answer carries two independent signals that regularly disagree. This
+    # sat only in the Flagged section caption, where it was easy to miss, so a
+    # reader hitting "AI Score 0%" beside a "mixed signals" verdict had nothing
+    # telling them that is expected rather than a fault.
+    term_style = ParagraphStyle('Term', parent=s['td'], fontName='Helvetica-Bold',
+                                textColor=colors.HexColor(INK))
+    guide_rows = [
+        [Paragraph('Verdict', term_style),
+         Paragraph('<b>Primary indicator.</b> The overall assessment of the answer. This is the '
+                   'main signal, and it is what the classification and the portfolio verdict '
+                   'are built from.', s['bodysoft'])],
+        [Paragraph('AI Score', term_style),
+         Paragraph('<b>Secondary indicator.</b> How much of the answer reads as AI-generated. '
+                   'It is not a probability and is measured separately from the Verdict, so the '
+                   'two can disagree — an answer may show 0% with a mixed signals verdict, or '
+                   '100% with a human-leaning one. Neither is an error. '
+                   '<b>Where they differ, follow the Verdict.</b>', s['bodysoft'])],
+        [Paragraph('Flagged sentences', term_style),
+         Paragraph('Where specific sentences were identified as AI-generated, they are listed '
+                   'in red with the answer. These show exactly which wording produced the '
+                   'result and are the quickest way into a review. An answer can carry a '
+                   'flagged verdict without any — the two are separate checks.', s['bodysoft'])],
+    ]
+    guide = Table(guide_rows, colWidths=[1.35 * inch, W - 1.35 * inch - 22])
+    guide.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (0, -1), 11), ('LEFTPADDING', (1, 0), (1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 11),
+        ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LINEBELOW', (0, 0), (-1, -2), 0.4, colors.HexColor(RULE)),
+    ]))
+    guide_panel = Table([[[Paragraph('READING EACH ANSWER', s['eyebrow']), Spacer(1, 5), guide]]],
+                        colWidths=[W])
+    guide_panel.setStyle(TableStyle([
+        ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 9), ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
+        ('LINEABOVE', (0, 0), (-1, 0), 2, colors.HexColor(BRAND_GOLD)),
+    ]))
+    el.append(guide_panel)
 
-    # Build PDF
-    doc.build(elements)
-    pdf_buffer.seek(0)
-    return pdf_buffer.getvalue()
+    # ── ANSWER DETAIL ────────────────────────────────────────────────────────
+    severity_rank = {'AI': 0, 'Mixed': 1, 'AI Polished': 2}
+
+    def flagged_key(r):
+        # Most serious classification first; within a classification the stronger
+        # stronger wording first (level 8 "is AI/GPT Generated" ahead of level 6
+        # "Most Likely..."); then portfolio order so it stays predictable.
+        return (severity_rank.get(r.get('overall_classification'), 3),
+                -(r.get('feedback_level') or 0),
+                r.get('order', 0))
+
+    flagged = sorted([r for r in answer_results
+                      if r.get('overall_classification') not in ('Human',) + UNASSESSED],
+                     key=flagged_key)
+    human = sorted([r for r in answer_results
+                    if r.get('overall_classification') == 'Human'],
+                   key=lambda x: x.get('order', 0))
+    unassessed = sorted([r for r in answer_results
+                         if r.get('overall_classification') in UNASSESSED],
+                        key=lambda x: x.get('order', 0))
+
+    def section_header(title, caption):
+        return [Spacer(1, 17), Paragraph(escape(title), s['section']), Spacer(1, 2),
+                Paragraph(caption, s['caption']), Spacer(1, 9)]
+
+    def answer_card(idx, r, lead=None):
+        """`lead` is kept on the same page as the card, so a group band never
+        strands itself at the foot of a page above its first answer."""
+        classification = r.get('overall_classification', 'Unknown')
+        colour, badge_label = CLASSIFICATION_STYLE.get(
+            classification, (PRIORITY_NONE, str(classification).upper()))
+        badge, badge_w = _badge(badge_label, colour)
+
+        meta_bits = [f'<b>#{idx}</b>']
+        if classification not in UNASSESSED:
+            meta_bits.append(f"AI Score <b>{r.get('ai_percentage', 0)}%</b>")
+        if r.get('word_count'):
+            meta_bits.append(f"{r['word_count']} words")
+        meta = Table([[badge, Paragraph(' · '.join(meta_bits), s['bodysoft'])]],
+                     colWidths=[badge_w + 7, None])
+        meta.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+
+        body = [meta, Spacer(1, 6),
+                Paragraph(escape(r.get('question', '')), s['question']),
+                Spacer(1, 2),
+                Paragraph(escape(r.get('unit', '')), s['caption']),
+                Spacer(1, 6)]
+
+        if classification in UNASSESSED:
+            body.append(Paragraph('Too little text to reach a reliable verdict — '
+                                  'not counted in the verdict mix.', s['bodysoft']))
+        else:
+            body.append(Paragraph(f"<b>Verdict:</b> {escape(r.get('feedback', ''))}",
+                                  s['bodysoft']))
+
+        sentences = r.get('ai_flagged_sentences') or []
+        if sentences and classification not in UNASSESSED:
+            body.append(Spacer(1, 7))
+            body.append(Paragraph('SENTENCES FLAGGED AS AI-GENERATED', ParagraphStyle(
+                'FlagHead', parent=s['eyebrow'],
+                textColor=colors.HexColor(PRIORITY_CRITICAL))))
+            body.append(Spacer(1, 3))
+            for sentence in sentences[:10]:
+                body.append(Paragraph(f'▸ {escape(str(sentence))}', s['flagged']))
+
+        answer_text = r.get('answer_full', '') or ''
+        if len(answer_text) > 1400:
+            answer_text = answer_text[:1400] + '…'
+        if answer_text:
+            body.append(Spacer(1, 8))
+            ans = Table([[Paragraph(escape(answer_text).replace('\n', '<br/>'), s['answer'])]],
+                        colWidths=[W - 0.32 * inch])
+            ans.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor(SURFACE)),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8), ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 6), ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            body.append(ans)
+
+        card_lead = lead or []
+        card = Table([['', body]], colWidths=[3, W - 3])
+        card.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, 0), colors.HexColor(colour)),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (0, 0), 0), ('RIGHTPADDING', (0, 0), (0, 0), 0),
+            ('LEFTPADDING', (1, 0), (1, 0), 11), ('RIGHTPADDING', (1, 0), (1, 0), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 11),
+        ]))
+        return KeepTogether(card_lead + [card, Spacer(1, 10)])
+
+    def compact_table(rows_data, show_score):
+        """Dozens of routine answers read better as a table than as cards.
+
+        Grouped under a unit band rather than carrying a Unit column. Repeating
+        the same long unit label on every row was noise, but blanking the repeats
+        read as missing data - and lost the unit entirely wherever the table
+        broke across a page. A band states it once, unambiguously.
+        """
+        band_style = ParagraphStyle(
+            'UnitBand', parent=s['th'], fontSize=7.5,
+            textColor=colors.HexColor(INK))
+
+        ncols = 3 if show_score else 2
+        head = [Paragraph('#', s['th']), Paragraph('QUESTION', s['th'])]
+        if show_score:
+            head.append(Paragraph('AI SCORE', s['th']))
+        rows = [head]
+
+        style = [
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 4.5), ('BOTTOMPADDING', (0, 0), (-1, -1), 4.5),
+            ('LINEBELOW', (0, 0), (-1, 0), 0.75, colors.HexColor(INK_MUTED)),
+        ]
+        if show_score:
+            style.append(('ALIGN', (-1, 0), (-1, -1), 'RIGHT'))
+
+        previous_unit = None
+        for idx, r in rows_data:
+            unit = r.get('unit', '')
+            if unit != previous_unit:
+                band = len(rows)
+                rows.append([Paragraph(escape(unit), band_style)] + [''] * (ncols - 1))
+                style += [
+                    ('SPAN', (0, band), (-1, band)),
+                    ('BACKGROUND', (0, band), (-1, band), colors.HexColor(SURFACE)),
+                    ('LEFTPADDING', (0, band), (-1, band), 6),
+                    ('TOPPADDING', (0, band), (-1, band), 5),
+                    ('BOTTOMPADDING', (0, band), (-1, band), 5),
+                ]
+                previous_unit = unit
+
+            row = [Paragraph(str(idx), s['td']),
+                   Paragraph(escape(r.get('question', '')), s['td'])]
+            if show_score:
+                row.append(Paragraph(f"{r.get('ai_percentage', 0)}%", s['td']))
+            body_row = len(rows)
+            rows.append(row)
+            style.append(('LINEBELOW', (0, body_row), (-1, body_row), 0.4,
+                          colors.HexColor(RULE)))
+
+        widths = ([0.3 * inch, W - 0.3 * inch - 0.8 * inch, 0.8 * inch] if show_score
+                  else [0.3 * inch, W - 0.3 * inch])
+        t = Table(rows, colWidths=widths, repeatRows=1)
+        t.setStyle(TableStyle(style))
+        return t
+
+    idx = 1
+    if flagged:
+        pending_section = section_header(
+            'Flagged for review',
+            f'{len(flagged)} answer(s) not classified as plainly human-written, ordered by '
+            'severity — outright AI verdicts first, then mixed signals, then answers judged '
+            'human but possibly containing AI parts. See <i>Reading each answer</i> on page 1 '
+            'for how Verdict and AI Score relate.')
+        group_labels = {
+            'AI': 'AI — judged AI-generated',
+            'Mixed': 'MIXED SIGNALS — partly AI-generated',
+            'AI Polished': 'HUMAN, MAY INCLUDE AI PARTS',
+        }
+        previous_group = None
+        for r in flagged:
+            group = r.get('overall_classification')
+            if group != previous_group:
+                colour = CLASSIFICATION_STYLE.get(group, (PRIORITY_NONE, ''))[0]
+                count = sum(1 for x in flagged if x.get('overall_classification') == group)
+                band = Table([[Paragraph(
+                    f"{group_labels.get(group, str(group).upper())}  ({count})",
+                    ParagraphStyle('GroupBand', parent=s['eyebrow'],
+                                   fontSize=7.5, textColor=colors.HexColor(colour)))]],
+                    colWidths=[W])
+                band.setStyle(TableStyle([
+                    ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                    ('TOPPADDING', (0, 0), (-1, -1), 3),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                    ('LINEBELOW', (0, 0), (-1, 0), 0.75, colors.HexColor(colour)),
+                ]))
+                pending_band = [Spacer(1, 6 if previous_group else 0), band, Spacer(1, 9)]
+                previous_group = group
+            else:
+                pending_band = None
+            lead = (pending_section or []) + (pending_band or []) or None
+            pending_section = None
+            el.append(answer_card(idx, r, lead=lead))
+            idx += 1
+
+    def render_group(group, show_score, lead=None):
+        nonlocal idx
+        if COMPACT_ROUTINE_SECTIONS:
+            el.extend(lead or [])
+            el.append(compact_table([(idx + i, r) for i, r in enumerate(group)],
+                                    show_score=show_score))
+            idx += len(group)
+        else:
+            pending = lead
+            for r in group:
+                el.append(answer_card(idx, r, lead=pending))
+                pending = None
+                idx += 1
+
+    if human:
+        head = section_header(
+            'Human-classified answers',
+            f'{len(human)} answer(s) classified as human-written, in unit and question '
+            'order. Listed in full for completeness; no action indicated.')
+        render_group(human, show_score=True, lead=head)
+
+    if unassessed:
+        head = section_header(
+            'Not assessed',
+            f'{len(unassessed)} answer(s) with too little text to assess. Excluded '
+            'from the counts above; no verdict is shown because none would be reliable.')
+        render_group(unassessed, show_score=False, lead=head)
+
+    if not answer_results:
+        el.append(Paragraph('No answers were analysed.', s['bodysoft']))
+
+    el.append(Spacer(1, 16))
+    el.append(Paragraph(
+        'Generated by PT Detector. Results should be considered '
+        'alongside other assessment evidence and learner context.', s['caption']))
+
+    def on_page(canvas, doc_):
+        _footer(canvas, doc_, learner_name)
+
+    doc.build(el, onFirstPage=on_page, onLaterPages=on_page)
+    buf.seek(0)
+    return buf.getvalue()
