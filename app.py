@@ -1248,6 +1248,31 @@ def load_analysis_report(session_id):
         return None
 
 
+@app.route('/report-preview/<session_id>', methods=['GET'])
+def report_preview(session_id):
+    """Serve the same PDF inline so the UI can embed it.
+
+    The on-screen results and the PDF drifted apart once before - the UI kept
+    showing classifications and wording the report had moved on from. Embedding
+    the real PDF rather than restyling HTML to imitate it means there is only
+    ever one rendering to maintain, so they cannot disagree again.
+    """
+    try:
+        from analysis.pdf_generator import generate_pdf_report
+
+        analysis_data = load_analysis_report(session_id)
+        if not analysis_data:
+            return jsonify({'error': 'No analysis data found for this session.'}), 404
+
+        return Response(
+            generate_pdf_report(analysis_data),
+            mimetype='application/pdf',
+            headers={'Content-Disposition': 'inline; filename="report.pdf"'},
+        )
+    except Exception as e:
+        return jsonify({'error': f'Failed to generate report preview: {str(e)}'}), 500
+
+
 @app.route('/download-report/<session_id>', methods=['GET'])
 def download_report(session_id):
     """Download PDF report for analysis results."""

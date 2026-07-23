@@ -867,9 +867,28 @@
       </div>
     </div>
 
-    <!-- Answer cards -->
-    <div class="answers-header">
+    <!-- View switch: interactive cards, or the report itself -->
+    <div class="answers-header" id="view-switch-row" style="display:none;">
       <div class="answers-title">Answer-by-Answer Breakdown</div>
+      <div class="filter-tabs">
+        <button class="filter-tab view-tab active" data-view="interactive" onclick="setView('interactive', this)">Interactive</button>
+        <button class="filter-tab view-tab" data-view="report" onclick="setView('report', this)">📄 Report view</button>
+      </div>
+    </div>
+
+    <div id="report-view" style="display:none;">
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">
+        The report exactly as it downloads and as it is filed to Dropbox.
+        <a id="report-open-tab" href="#" target="_blank" rel="noopener" style="color:var(--accent);">Open in a new tab</a>
+        if it does not display below.
+      </div>
+      <iframe id="report-frame" title="AI Detection Report"
+              style="width:100%; height:1100px; border:1px solid var(--border); border-radius:var(--radius); background:#fff;"></iframe>
+    </div>
+
+    <!-- Answer cards -->
+    <div class="answers-header" id="answers-header">
+      <div class="answers-title" style="visibility:hidden;">Answer-by-Answer Breakdown</div>
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
         <div class="filter-tabs">
           <button class="filter-tab active" data-filter="all" onclick="filterCards('all', this)">All</button>
@@ -1208,6 +1227,12 @@ async function handleStreamingResponse(response) {
             const downloadBtn = document.getElementById('download-pdf-btn');
             downloadBtn.style.display = 'inline-block';
             downloadBtn.setAttribute('data-session-id', event.session_id || '');
+
+            if (event.session_id) {
+              reportSessionId = event.session_id;
+              document.getElementById('view-switch-row').style.display = '';
+              document.getElementById('report-open-tab').href = '/report-preview/' + reportSessionId;
+            }
           }
 
           document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
@@ -1391,6 +1416,24 @@ function buildAnswerCard(a, idx) {
   `;
 
   return card;
+}
+
+let reportSessionId = null;
+
+function setView(view, tabEl) {
+  document.querySelectorAll('[data-view]').forEach(t => t.classList.remove('active'));
+  tabEl.classList.add('active');
+
+  const showReport = view === 'report';
+  document.getElementById('report-view').style.display = showReport ? 'block' : 'none';
+  document.getElementById('answers-header').style.display = showReport ? 'none' : '';
+  document.getElementById('answer-cards').style.display = showReport ? 'none' : '';
+
+  // Generate the PDF only when first asked for, not on every analysis.
+  const frame = document.getElementById('report-frame');
+  if (showReport && reportSessionId && !frame.src) {
+    frame.src = '/report-preview/' + reportSessionId;
+  }
 }
 
 function toggleCard(header) {
