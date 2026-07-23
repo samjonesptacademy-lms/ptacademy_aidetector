@@ -160,82 +160,116 @@
   }
 
   /* ── UPLOAD SECTION ── */
-  .upload-section { margin-bottom: 40px; }
+  /* ── UPLOAD (same design system as the report) ── */
+  .upload-section { margin-bottom: 40px; max-width: 780px; }
 
   .upload-headline {
-    font-size: 28px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    line-height: 1.3;
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-top: 2px;
   }
   .upload-sub {
-    color: var(--muted);
-    font-size: 14px;
-    margin-bottom: 28px;
+    color: var(--r-ink-soft);
+    font-size: 13.5px;
+    line-height: 1.6;
+    margin-top: 8px;
+    margin-bottom: 26px;
+    max-width: 62ch;
+  }
+
+  /* Numbered steps mirror the report's panel rhythm: gold rule, eyebrow, body. */
+  .up-step { border-top: 2px solid var(--r-gold); padding: 16px 0 22px; }
+  .up-step-head { display: flex; align-items: baseline; gap: 9px; margin-bottom: 14px; }
+  .up-step-n {
+    flex: 0 0 auto; font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+    color: #fff; background: var(--r-ink); border-radius: 3px; padding: 3px 6px;
+  }
+  .up-step-title { font-size: 14.5px; font-weight: 700; }
+  .up-step-hint { font-size: 12px; color: var(--r-ink-muted); }
+
+  .up-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .up-field label {
+    display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--r-ink-muted); margin-bottom: 6px;
+  }
+  .up-field input, .up-field select {
+    width: 100%; padding: 10px 12px;
+    background: #fff; color: var(--r-ink);
+    border: 1px solid var(--r-rule); border-radius: 6px;
+    font-family: var(--font); font-size: 14px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .up-field input::placeholder { color: #b4b1a8; }
+  .up-field input:focus, .up-field select:focus {
+    outline: none; border-color: var(--r-gold);
+    box-shadow: 0 0 0 3px rgba(198,169,6,0.15);
   }
 
   .drop-zone {
-    border: 2px dashed var(--border2);
-    border-radius: var(--radius-lg);
-    padding: 52px 24px;
+    border: 1.5px dashed var(--r-rule);
+    border-radius: 8px;
+    padding: 26px 24px;
     text-align: center;
     cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-    background: var(--surface);
+    transition: border-color 0.15s, background 0.15s;
+    background: var(--r-surface);
     position: relative;
   }
   .drop-zone:hover, .drop-zone.dragover {
-    border-color: var(--accent);
-    background: var(--accent-dim);
+    border-color: var(--r-gold);
+    background: rgba(198,169,6,0.07);
   }
   .drop-zone input[type="file"] {
     position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
   }
-  .drop-icon {
-    font-size: 40px;
-    margin-bottom: 16px;
-    display: block;
-    opacity: 0.6;
-  }
-  .drop-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
-  .drop-hint { font-size: 13px; color: var(--muted); }
+  .drop-icon { display: none; }
+  .drop-title { font-size: 14.5px; font-weight: 700; }
+  .drop-hint { font-size: 12px; color: var(--r-ink-muted); margin-top: 4px; }
 
   .file-selected {
-    margin-top: 16px;
+    margin-top: 12px;
     display: none;
     align-items: center;
     gap: 10px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 12px 16px;
+    background: #fff;
+    border: 1px solid var(--r-rule);
+    border-left: 3px solid var(--r-clear);
+    border-radius: 6px;
+    padding: 10px 13px;
   }
   .file-selected.show { display: flex; }
-  .file-icon { font-size: 20px; flex-shrink: 0; }
-  .file-name { font-size: 13px; font-family: var(--mono); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-icon { font-size: 15px; flex-shrink: 0; }
+  .file-name { font-size: 12.5px; font-family: var(--mono); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .file-remove {
-    background: none; border: none; cursor: pointer; color: var(--muted);
-    font-size: 18px; padding: 2px 6px; border-radius: 4px; transition: color 0.15s;
+    background: none; border: none; cursor: pointer; color: var(--r-ink-muted);
+    font-size: 16px; padding: 2px 6px; border-radius: 4px; transition: color 0.15s;
   }
-  .file-remove:hover { color: var(--red); }
+  .file-remove:hover { color: var(--r-critical); }
 
   .btn-analyse {
-    margin-top: 20px;
+    margin-top: 4px;
     width: 100%;
-    padding: 14px 24px;
-    background: var(--accent);
-    color: #030303;
+    padding: 13px 24px;
+    background: var(--r-gold);
+    color: #1a1600;
     border: none;
-    border-radius: var(--radius);
+    border-radius: 6px;
     font-family: var(--font);
-    font-size: 15px;
+    font-size: 14.5px;
     font-weight: 700;
     cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
-    box-shadow: 0 4px 12px rgba(198,169,6,0.2);
+    transition: filter 0.15s;
   }
-  .btn-analyse:hover:not(:disabled) { opacity: 0.95; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(198,169,6,0.3); }
-  .btn-analyse:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-analyse:hover:not(:disabled) { filter: brightness(1.06); }
+  .btn-analyse:disabled {
+    background: var(--r-surface); color: var(--r-ink-muted);
+    border: 1px solid var(--r-rule); cursor: not-allowed;
+  }
+
+  @media (max-width: 640px) {
+    .up-grid { grid-template-columns: 1fr; }
+  }
 
   /* ── LOADING ── */
   .loading-state {
@@ -694,47 +728,44 @@
   .mode-toggle {
     display: flex;
     gap: 8px;
-    margin-bottom: 24px;
   }
   .mode-toggle.hidden {
     display: none;
   }
   .mode-btn {
     flex: 1;
-    padding: 12px 16px;
-    border: 2px solid var(--border);
-    background: var(--surface);
-    color: var(--muted);
-    border-radius: var(--radius);
+    padding: 9px 14px;
+    border: 1px solid var(--r-rule);
+    background: #fff;
+    color: var(--r-ink-soft);
+    border-radius: 6px;
     font-family: var(--font);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
   }
-  .mode-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
+  .mode-btn:hover { border-color: var(--r-gold); color: var(--r-ink); }
   .mode-btn.active {
-    border-color: var(--accent);
-    background: var(--accent-dim);
-    color: var(--accent);
+    border-color: var(--r-gold);
+    background: rgba(198,169,6,0.1);
+    color: var(--r-ink);
   }
 
   /* Unit Selection Panel */
   .unit-hint {
-    font-size: 14px;
-    font-weight: 500;
-    margin-bottom: 12px;
-    color: var(--text);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--r-ink-muted);
+    margin-bottom: 10px;
   }
   #unit-selection {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 16px;
-    margin-bottom: 24px;
+    background: var(--r-surface);
+    border: 1px solid var(--r-rule);
+    border-radius: 6px;
+    padding: 13px 15px;
   }
   #unit-selection.hidden {
     display: none;
@@ -780,59 +811,71 @@
 <main>
 
   <!-- UPLOAD STATE -->
-  <div id="upload-section" class="upload-section">
-    <h1 class="upload-headline">Check Learner Workbook for AI-Generated Content</h1>
-    <p class="upload-sub">Enter the learner's name, select a qualification, and upload the completed assessment workbook. The workbook is analysed for AI-generated content using advanced detection technology.</p>
+  <div id="upload-section" class="upload-section rpt">
+    <div class="rpt-eyebrow">PT ACADEMY · AI DETECTION</div>
+    <h1 class="upload-headline">Check a learner workbook for AI-generated content</h1>
+    <p class="upload-sub">Each answer is analysed individually. The report tells you which answers are worth reading closely — it does not make a determination about the learner.</p>
 
-    <div style="margin-bottom: 24px;">
-      <label for="learner-name" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">Learner's Name</label>
-      <input type="text" id="learner-name" placeholder="Enter learner's full name" style="width: 100%; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 14px;" required>
+    <div class="up-step">
+      <div class="up-step-head">
+        <span class="up-step-n">1</span>
+        <span class="up-step-title">Who is this for?</span>
+      </div>
+      <div class="up-grid">
+        <div class="up-field">
+          <label for="learner-name">Learner's name</label>
+          <input type="text" id="learner-name" placeholder="Full name" required>
+        </div>
+        <div class="up-field">
+          <label for="assessor-name">Assessor's name</label>
+          <input type="text" id="assessor-name" placeholder="Full name" required>
+        </div>
+      </div>
     </div>
 
-    <div style="margin-bottom: 24px;">
-      <label for="assessor-name" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">Assessor's Full Name</label>
-      <input type="text" id="assessor-name" placeholder="Enter assessor's full name" style="width: 100%; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 14px;" required>
+    <div class="up-step">
+      <div class="up-step-head">
+        <span class="up-step-n">2</span>
+        <span class="up-step-title">Which qualification?</span>
+        <span class="up-step-hint">The portfolio version must match, or answers will be missed.</span>
+      </div>
+      <div class="up-field">
+        <label for="course-select">Qualification / portfolio</label>
+        <select id="course-select" required>
+          <option value="">Select a course…</option>
+        </select>
+      </div>
+
+      <div id="analysis-mode-toggle" class="mode-toggle hidden" style="margin-top: 16px;">
+        <button type="button" id="btn-full" class="mode-btn active" data-mode="full">Full workbook</button>
+        <button type="button" id="btn-partial" class="mode-btn" data-mode="partial">Selected units</button>
+      </div>
+
+      <div id="unit-selection" class="hidden" style="margin-top: 14px;">
+        <p class="unit-hint">Select the units to analyse:</p>
+        <div id="unit-checkboxes"></div>
+      </div>
     </div>
 
-    <div style="margin-bottom: 24px;">
-      <label for="course-select" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">Qualification/Course</label>
-      <select id="course-select" style="width: 100%; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 14px;" required>
-        <option value="">-- Select a course --</option>
-      </select>
+    <div class="up-step">
+      <div class="up-step-head">
+        <span class="up-step-n">3</span>
+        <span class="up-step-title">Upload the workbook</span>
+      </div>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="file-input" accept=".pdf">
+        <div class="drop-title">Drop the workbook here, or click to browse</div>
+        <div class="drop-hint">PT Academy PDF workbooks only · max 50MB</div>
+      </div>
+
+      <div class="file-selected" id="file-selected">
+        <span class="file-icon">📎</span>
+        <span class="file-name" id="file-name-display"></span>
+        <button class="file-remove" id="file-remove" title="Remove file">✕</button>
+      </div>
     </div>
 
-    <!-- Analysis Mode Toggle — only visible once a course is chosen -->
-    <div id="analysis-mode-toggle" class="mode-toggle hidden" style="margin-bottom: 24px;">
-      <button type="button" id="btn-full" class="mode-btn active" data-mode="full">
-        Full Workbook Analysis
-      </button>
-      <button type="button" id="btn-partial" class="mode-btn" data-mode="partial">
-        Partial Workbook Analysis
-      </button>
-    </div>
-
-    <!-- Unit Checkboxes — only visible in Partial mode -->
-    <div id="unit-selection" class="hidden" style="margin-bottom: 24px;">
-      <p class="unit-hint">Select the units to analyse:</p>
-      <div id="unit-checkboxes"></div>
-    </div>
-
-    <div class="drop-zone" id="drop-zone">
-      <input type="file" id="file-input" accept=".pdf">
-      <span class="drop-icon">📄</span>
-      <div class="drop-title">Drop workbook here or click to browse</div>
-      <div class="drop-hint">PT Academy PDF workbooks only · Max 50MB</div>
-    </div>
-
-    <div class="file-selected" id="file-selected">
-      <span class="file-icon">📎</span>
-      <span class="file-name" id="file-name-display"></span>
-      <button class="file-remove" id="file-remove" title="Remove file">✕</button>
-    </div>
-
-    <button class="btn-analyse" id="btn-analyse" disabled>
-      Analyse Workbook
-    </button>
+    <button class="btn-analyse" id="btn-analyse" disabled>Analyse workbook</button>
   </div>
 
   <!-- LOADING STATE -->
