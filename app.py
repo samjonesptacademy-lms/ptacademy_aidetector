@@ -267,9 +267,12 @@ def extract_answers_from_pdf(pdf_path, course_id='level2_gym', selected_units=No
         if not owners:
             continue
 
-        # Resolve the mapping for the requested course. Fall back to level2_gym for
-        # backwards compatibility (its generic field names predate multi-course).
-        entry = owners.get(course_id) or owners.get('level2_gym')
+        # Resolve the mapping for the requested course only. A generic name like
+        # "Text Field 5026" exists in several course configs meaning completely
+        # different questions, so borrowing another course's mapping invents
+        # questions that aren't in this portfolio (e.g. a Level 3 V2 programme
+        # overview cell being reported as a Level 2 "Unit 4" SMART goal).
+        entry = owners.get(course_id)
         if not entry:
             continue
 

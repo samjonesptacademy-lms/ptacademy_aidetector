@@ -300,14 +300,14 @@
         "unit3b": {
           "label": "Unit 3 – Case Study (Client Consultation & Nutrition)",
           "fields": {
-            "Condultation_Q_37": "Consultation: Client's reason for training and primary goals",
-            "Condultation_Q_38": "Consultation: SMART training goals (long, medium and short term)",
-            "Condultation_Q_39": "Consultation: Main barriers to the client achieving their goal and nutrition plan",
+            "Condultation_Q_37": "Consultation: What is the client’s reason for training?",
+            "Condultation_Q_38": "Consultation: Based on the clients reason for training set long, medium and short term SMART training goals",
+            "Condultation_Q_39": "Consultation: What are the main barriers to the client achieving their goal and nutrition plan?",
             "Condultation_Q_40": "Consultation: How often can the client participate in regular exercise",
-            "Condultation_Q_41": "Consultation: Client's gym experience and training background (including training age)",
-            "Condultation_Q_42": "Consultation: Activities or gym equipment the client likes or dislikes",
-            "Unit_3_Q_116": "Consultation: Technology to help motivate client and support exercise adherence",
-            "u1_FB_1st 58": "Nutrition: Summary of client's current food intake vs healthy eating guidelines and dietary recommendations"
+            "Condultation_Q_41": "Consultation: Describe the client’s gym experience and training age",
+            "Condultation_Q_42": "Consultation: What activities or gym equipment does the client like or dislike",
+            "Unit_3_Q_116": "Consultation: What types of technology will you include to help motivate and focus your clients to increase their physical activity levels, exercise adherence and healthy eating patterns?",
+            "u1_FB_1st 58": "Nutrition: 1. Compare your client’s current eating habits with the current healthy eating guidance. \nConsider the following:\n• Fluid amount/type\n• Fruit and veg intake\n• Types/amount of CHO\n• Quality of protein ad fats\n• Food quatity and meal timings\n2. What advice will you give the client on eating for physical activity. Consider the following:\n• Fluid intake and timings\n• Macronutrients and timings\n3. Who may be useful and practical to involve in a client’s nutritional goal setting?"
           }
         },
         "unit3c": {
@@ -321,10 +321,11 @@
             "Text Field 605": "1-to-1 Programme Card: Resources needed for the session",
             "Text Field 30297": "1-to-1 Programme Card: Main CV – description of training system used",
             "Text Field 30465": "1-to-1 Programme Card: Cool-down CV – notes and coaching points",
-            "Text Field 658": "1-to-1 Programme Card: PNF stretch technique description and how it works",
+            "Text Field 658": "1-to-1 Programme Card: Cool-down stretch notes and coaching points",
             "Text Field 6010": "Small Group PT: Safety checks (environment and client)",
             "Text Field 6011": "Small Group PT: Resources needed for the session",
             "Text Field 659": "Small Group PT: Warm-up description and coaching notes",
+            "Text Field 30325": "Small Group PT: Main session description and coaching notes",
             "Text Field 660": "Small Group PT: Cool-down description and coaching notes"
           }
         },
@@ -354,6 +355,26 @@
             "Unit_2_Q_1026": "14. SWOT Analysis – Business Weaknesses",
             "Unit_2_Q_101": "14. SWOT Analysis – Business Opportunities",
             "Unit_2_Q_1025": "14. SWOT Analysis – Business Threats",
+            "Unit_2_Q_69": "15. Marketing strategy 1 – What are you going to do?",
+            "Unit_2_Q_71": "15. Marketing strategy 1 – Why have you chosen this method?",
+            "Unit_2_Q_72": "15. Marketing strategy 1 – How much does it cost?",
+            "Unit_2_Q_74": "15. Marketing strategy 2 – What are you going to do?",
+            "Unit_2_Q_75": "15. Marketing strategy 2 – Why have you chosen this method?",
+            "Unit_2_Q_76": "15. Marketing strategy 2 – How much does it cost?",
+            "Unit_2_Q_77": "15. Marketing strategy 3 – What are you going to do?",
+            "Unit_2_Q_88": "15. Marketing strategy 3 – Why have you chosen this method?",
+            "Unit_2_Q_89": "15. Marketing strategy 3 – How much does it cost?",
+            "Unit_2_Q_90": "15. Marketing strategies – Total cost",
+            "Unit_2_Q_95": "16. Competitor 1 – Name, location and business size",
+            "Unit_2_Q_96": "16. Competitor 2 – Name, location and business size",
+            "Unit_2_Q_97": "16. Competitor 1 – Product/service",
+            "Unit_2_Q_98": "16. Competitor 2 – Product/service",
+            "Unit_2_Q_99": "16. Competitor 1 – Price",
+            "Unit_2_Q_100": "16. Competitor 2 – Price",
+            "Unit_2_Q_102": "16. Competitor 1 – Strengths",
+            "Unit_2_Q_1022": "16. Competitor 2 – Strengths",
+            "Unit_2_Q_1023": "16. Competitor 1 – Weaknesses",
+            "Unit_2_Q_1024": "16. Competitor 2 – Weaknesses",
             "Unit_2_Q_63": "17. Unique selling point (USP) of your personal training business"
           }
         }
