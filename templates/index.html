@@ -534,7 +534,7 @@
   .percentage-dot.human { background: var(--green); }
   .percentage-value { font-weight: 600; font-family: var(--mono); }
 
-  /* Simplified AI Probability metric */
+  /* AI Score metric */
   .ai-probability-metric {
     display: flex;
     align-items: baseline;
@@ -768,7 +768,7 @@
   <div class="loading-state" id="loading-state">
     <div class="spinner"></div>
     <div class="loading-text">Analysing workbook…</div>
-    <div class="loading-sub">Zero GPT analysis — typically 20–45 seconds</div>
+    <div class="loading-sub">Analysing answers — typically 20–45 seconds</div>
   </div>
 
   <!-- ERROR STATE -->
@@ -837,6 +837,15 @@
         </div>
         <div id="quality-note-container"></div>
 
+        <div style="margin-top: 12px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);">
+          <div style="font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Reading each answer</div>
+          <div style="font-size: 12px; color: var(--muted); line-height: 1.55;">
+            <div style="margin-bottom: 5px;"><strong style="color: var(--text);">Verdict</strong> — primary indicator. The overall assessment of the answer; follow this one.</div>
+            <div style="margin-bottom: 5px;"><strong style="color: var(--text);">AI Score %</strong> — secondary. Not a probability, and measured separately from the Verdict, so the two can disagree — an answer may show 0% with a Mixed verdict, or 100% with a human-leaning one. Neither is an error. <strong style="color: var(--text);">Where they differ, follow the Verdict.</strong></div>
+            <div><strong style="color: var(--text);">Flagged sentences</strong> — where specific sentences were identified they are listed in red on the answer. An answer can be flagged without any; the two are separate checks.</div>
+          </div>
+        </div>
+
         <!-- Cost Breakdown (shown below portfolio metrics) -->
         <div id="cost-breakdown" style="margin-top: 12px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); display:none;">
           <div style="font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">💰 Analysis Cost</div>
@@ -873,12 +882,16 @@
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
         <div class="filter-tabs">
           <button class="filter-tab active" data-filter="all" onclick="filterCards('all', this)">All</button>
+          <button class="filter-tab" data-filter="flagged" onclick="filterCards('flagged', this)" style="color:var(--red)">Flagged</button>
           <button class="filter-tab" data-filter="AI" onclick="filterCards('AI', this)" style="color:var(--red)">AI</button>
+          <button class="filter-tab" data-filter="Mixed" onclick="filterCards('Mixed', this)" style="color:var(--amber)">Mixed</button>
+          <button class="filter-tab" data-filter="AI Polished" onclick="filterCards('AI Polished', this)" style="color:var(--amber)">Human + AI parts</button>
           <button class="filter-tab" data-filter="Human" onclick="filterCards('Human', this)" style="color:var(--green)">Human</button>
+          <button class="filter-tab" data-filter="Insufficient Text" onclick="filterCards('Insufficient Text', this)" style="color:var(--muted)">Not assessed</button>
         </div>
         <div class="filter-tabs">
-          <button class="filter-tab sort-tab" data-sort="default" onclick="sortCards('default', this)">Original</button>
-          <button class="filter-tab sort-tab" data-sort="ai_desc" onclick="sortCards('ai_desc', this)">↓ AI %</button>
+          <button class="filter-tab sort-tab active" data-sort="default" onclick="sortCards('default', this)">Original</button>
+          <button class="filter-tab sort-tab" data-sort="severity" onclick="sortCards('severity', this)">Most serious first</button>
         </div>
       </div>
     </div>
@@ -1251,62 +1264,6 @@ function resetToUpload() {
 }
 
 // ── RENDER RESULTS ──
-function renderResults(data) {
-  const { summary, answers, filename, course_name } = data;
-
-  // Overall badge - based on AI percentage
-  const badge = document.getElementById('overall-badge');
-  const avgAI = summary.avg_ai_percentage;
-
-  // Determine badge styling and heading based on AI percentage
-  let badgeClass = 'risk-badge-unlikely';
-  let heading = 'Analysis Complete';
-  let labelText = 'LOW AI';
-
-  if (avgAI >= 65) {
-    badgeClass = 'risk-badge-high';
-    heading = '⚠️ High AI Content Detected — Review Required';
-    labelText = 'HIGH AI';
-  } else if (avgAI >= 35) {
-    badgeClass = 'risk-badge-medium';
-    heading = '🔍 Moderate AI Content Detected';
-    labelText = 'MODERATE AI';
-  } else if (avgAI >= 20) {
-    badgeClass = 'risk-badge-low';
-    heading = '🔎 Some AI Content Detected — Worth Reviewing';
-    labelText = 'SOME AI';
-  } else {
-    badgeClass = 'risk-badge-unlikely';
-    heading = '✅ Likely Human-Written';
-    labelText = 'LIKELY HUMAN';
-  }
-
-  badge.className = 'summary-risk-badge ' + badgeClass;
-  document.getElementById('overall-score').textContent = avgAI + '%';
-  document.getElementById('overall-label').textContent = labelText;
-  document.getElementById('overall-heading').textContent = heading;
-  document.getElementById('result-filename').textContent = filename;
-  document.getElementById('result-course').textContent = course_name || '';
-
-  document.getElementById('stat-total').textContent = summary.total_answers;
-  document.getElementById('stat-ai').textContent = summary.ai_count;
-  document.getElementById('stat-ai-polished').textContent = summary.ai_polished_count;
-  document.getElementById('stat-human').textContent = summary.human_count;
-
-  // Answer cards
-  const container = document.getElementById('answer-cards');
-  container.innerHTML = '';
-
-  answers.forEach((a, i) => {
-    const card = buildAnswerCard(a, i);
-    container.appendChild(card);
-  });
-
-  document.getElementById('results').style.display = 'block';
-  document.getElementById('results').classList.add('show');
-  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
-}
-
 function buildAnswerCard(a, idx) {
   const card = document.createElement('div');
 
@@ -1323,14 +1280,17 @@ function buildAnswerCard(a, idx) {
   // Classification badge styling
   const classificationMap = {
     'AI': { class: 'ai', label: 'AI' },
+    'Mixed': { class: 'mixed', label: 'Mixed' },
+    'AI Polished': { class: 'ai-polished', label: 'Human + AI parts' },
     'Human': { class: 'human', label: 'Human' },
-    'Mixed': { class: 'mixed', label: 'Mixed' }
+    'Insufficient Text': { class: 'unknown', label: 'Not assessed' },
+    'Unknown': { class: 'unknown', label: 'No result' }
   };
   const classInfo = classificationMap[classification] || { class: 'unknown', label: classification };
 
   // AI probability (simplified single metric)
   const ai_pct = a.ai_percentage || 0;
-  const scoreClass = ai_pct >= 65 ? 'score-high' : ai_pct >= 35 ? 'score-medium' : ai_pct >= 20 ? 'score-low' : 'score-unlikely';
+  const scoreClass = '';  // severity is carried by the classification badge
 
   // Sentence breakdown section
   let sentenceBreakdownHtml = '';
@@ -1386,7 +1346,7 @@ function buildAnswerCard(a, idx) {
   const previewAnswer = escapeHtml(a.answer_preview || '');
   const isLong = (a.answer_full || '').length > 300;
 
-  // Answers Zero GPT could not judge are shown as not scored, and its raw
+  // Answers the detector could not judge are shown as not scored, and its raw
   // verdict is withheld - displaying it would invite reading a result we have
   // already declared unreliable.
   const notAssessed = a.overall_classification === 'Insufficient Text'
@@ -1397,14 +1357,14 @@ function buildAnswerCard(a, idx) {
     confidenceWarning = `
       <div style="margin-bottom: 12px; padding: 8px 12px; background: rgba(120,120,120,0.1); border-left: 3px solid var(--muted); border-radius: var(--radius);">
         <div style="font-size: 11px; font-weight: 600; color: var(--muted);">Not assessed</div>
-        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">Too little text for Zero GPT to reach a reliable verdict. Excluded from the portfolio score.</div>
+        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">Too little text to reach a reliable verdict. Excluded from the counts above.</div>
       </div>
     `;
   } else if (a.low_confidence_flag) {
     confidenceWarning = `
       <div style="margin-bottom: 12px; padding: 8px 12px; background: rgba(245,166,35,0.1); border-left: 3px solid var(--amber); border-radius: var(--radius);">
         <div style="font-size: 11px; font-weight: 600; color: var(--amber);">⚠️ Low Confidence (Short Answer)</div>
-        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">This answer has fewer than 50 words. Zero GPT is less reliable on short text.</div>
+        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">This answer has fewer than 50 words. Detection is less reliable on short text.</div>
       </div>
     `;
   }
@@ -1413,7 +1373,7 @@ function buildAnswerCard(a, idx) {
     ? `<div class="verdict-box verdict-${a.risk_level ? a.risk_level.toLowerCase() : (a.risk || 'low')}">${escapeHtml(a.overall_verdict)}</div>`
     : '';
 
-  // Sentences Zero GPT itself flagged - the most directly actionable output.
+  // Sentences the detector itself flagged - the most directly actionable output.
   const flaggedSentences = a.ai_flagged_sentences || [];
   const flaggedHtml = (flaggedSentences.length && !notAssessed) ? `
     <div style="margin: 10px 0; padding: 8px 12px; background: rgba(255,79,106,0.08); border-left: 3px solid var(--red, #ff4f6a); border-radius: var(--radius);">
@@ -1471,7 +1431,10 @@ function filterCards(classification, tabEl) {
   document.querySelectorAll('[data-filter]').forEach(t => t.classList.remove('active'));
   tabEl.classList.add('active');
   document.querySelectorAll('.answer-card').forEach(card => {
-    if (classification === 'all' || card.dataset.classification === classification) {
+    const cls = card.dataset.classification;
+    const isFlagged = cls === 'AI' || cls === 'Mixed' || cls === 'AI Polished';
+    if (classification === 'all' || cls === classification ||
+        (classification === 'flagged' && isFlagged)) {
       card.classList.remove('hidden');
     } else {
       card.classList.add('hidden');
@@ -1484,8 +1447,14 @@ function sortCards(mode, tabEl) {
   tabEl.classList.add('active');
 
   let sorted = [...allResults];
-  if (mode === 'ai_desc') {
-    sorted.sort((a, b) => (b.ai_percentage || 0) - (a.ai_percentage || 0));
+  if (mode === 'severity') {
+    // Same ordering as the PDF: most serious classification first, then the
+    // stronger detector wording, then original order.
+    const rank = { 'AI': 0, 'Mixed': 1, 'AI Polished': 2, 'Human': 3 };
+    sorted.sort((a, b) =>
+      (rank[a.overall_classification] ?? 4) - (rank[b.overall_classification] ?? 4)
+      || (b.feedback_level ?? 0) - (a.feedback_level ?? 0)
+      || (a.order ?? 0) - (b.order ?? 0));
   }
 
   answerTextStore = {};
@@ -1493,7 +1462,10 @@ function sortCards(mode, tabEl) {
   container.innerHTML = '';
   sorted.forEach((result, i) => {
     const card = buildAnswerCard(result, i);
-    if (currentFilter !== 'all' && card.dataset.classification !== currentFilter) {
+    const cls = card.dataset.classification;
+    const isFlagged = cls === 'AI' || cls === 'Mixed' || cls === 'AI Polished';
+    if (currentFilter !== 'all' && cls !== currentFilter &&
+        !(currentFilter === 'flagged' && isFlagged)) {
       card.classList.add('hidden');
     }
     container.appendChild(card);
