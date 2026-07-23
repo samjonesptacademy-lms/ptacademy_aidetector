@@ -73,11 +73,12 @@ REVIEW_LEVEL_STYLE = {
 
 UNASSESSED = ('Insufficient Text', 'Unknown')
 
-# Render the Human-classified and Not-assessed sections as full cards (verdict
-# and answer text shown for every answer) rather than as a compact table. The
-# table is far shorter, but full cards keep the report a complete record of the
-# portfolio. Set True for the compact treatment.
-COMPACT_ROUTINE_SECTIONS = False
+# Render the Human-classified and Not-assessed sections as a compact table
+# rather than as full cards. These answers need no action, so they are listed
+# for completeness only and should take as little space as possible - full
+# cards for dozens of them buried the flagged answers. Set False to show the
+# verdict and full answer text for every answer instead.
+COMPACT_ROUTINE_SECTIONS = True
 
 
 def get_risk_color(risk_level):
@@ -492,8 +493,9 @@ def generate_pdf_report(results):
                         key=lambda x: x.get('order', 0))
 
     def section_header(title, caption):
-        return [Spacer(1, 17), Paragraph(escape(title), s['section']), Spacer(1, 2),
-                Paragraph(caption, s['caption']), Spacer(1, 9)]
+        gap = 12 if COMPACT_ROUTINE_SECTIONS else 17
+        return [Spacer(1, gap), Paragraph(escape(title), s['section']), Spacer(1, 2),
+                Paragraph(caption, s['caption']), Spacer(1, 6)]
 
     def answer_card(idx, r, lead=None):
         """`lead` is kept on the same page as the card, so a group band never
@@ -573,53 +575,64 @@ def generate_pdf_report(results):
         broke across a page. A band states it once, unambiguously.
         """
         band_style = ParagraphStyle(
-            'UnitBand', parent=s['th'], fontSize=7.5,
-            textColor=colors.HexColor(INK))
+            'UnitBand', parent=s['th'], fontSize=7,
+            textColor=colors.HexColor(INK), leading=9)
+        cell = ParagraphStyle('CompactCell', parent=s['td'], fontSize=7.3, leading=8.8)
 
         ncols = 3 if show_score else 2
         head = [Paragraph('#', s['th']), Paragraph('QUESTION', s['th'])]
         if show_score:
             head.append(Paragraph('AI SCORE', s['th']))
-        rows = [head]
 
-        style = [
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 4.5), ('BOTTOMPADDING', (0, 0), (-1, -1), 4.5),
-            ('LINEBELOW', (0, 0), (-1, 0), 0.75, colors.HexColor(INK_MUTED)),
-        ]
-        if show_score:
-            style.append(('ALIGN', (-1, 0), (-1, -1), 'RIGHT'))
+        widths = ([0.26 * inch, W - 0.26 * inch - 0.62 * inch, 0.62 * inch] if show_score
+                  else [0.26 * inch, W - 0.26 * inch])
 
-        previous_unit = None
+        # One table per unit, with the unit band as its repeat row. A single
+        # table with inline bands loses the unit heading wherever the list
+        # breaks across a page, leaving a column of questions with no context.
+        groups = []
         for idx, r in rows_data:
             unit = r.get('unit', '')
-            if unit != previous_unit:
-                band = len(rows)
-                rows.append([Paragraph(escape(unit), band_style)] + [''] * (ncols - 1))
-                style += [
-                    ('SPAN', (0, band), (-1, band)),
-                    ('BACKGROUND', (0, band), (-1, band), colors.HexColor(SURFACE)),
-                    ('LEFTPADDING', (0, band), (-1, band), 6),
-                    ('TOPPADDING', (0, band), (-1, band), 5),
-                    ('BOTTOMPADDING', (0, band), (-1, band), 5),
-                ]
-                previous_unit = unit
+            if not groups or groups[-1][0] != unit:
+                groups.append((unit, []))
+            groups[-1][1].append((idx, r))
 
-            row = [Paragraph(str(idx), s['td']),
-                   Paragraph(escape(r.get('question', '')), s['td'])]
+        tables = [Table([head], colWidths=widths)]
+        tables[0].setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LINEBELOW', (0, 0), (-1, 0), 0.75, colors.HexColor(INK_MUTED)),
+        ] + ([('ALIGN', (-1, 0), (-1, 0), 'RIGHT')] if show_score else [])))
+
+        for unit, members in groups:
+            rows = [[Paragraph(escape(unit), band_style)] + [''] * (ncols - 1)]
+            style = [
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 1), (-1, -1), 2), ('BOTTOMPADDING', (0, 1), (-1, -1), 2),
+                ('SPAN', (0, 0), (-1, 0)),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(SURFACE)),
+                ('LEFTPADDING', (0, 0), (-1, 0), 5),
+                ('TOPPADDING', (0, 0), (-1, 0), 3.5),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 3.5),
+            ]
             if show_score:
-                row.append(Paragraph(f"{r.get('ai_percentage', 0)}%", s['td']))
-            body_row = len(rows)
-            rows.append(row)
-            style.append(('LINEBELOW', (0, body_row), (-1, body_row), 0.4,
-                          colors.HexColor(RULE)))
+                style.append(('ALIGN', (-1, 0), (-1, -1), 'RIGHT'))
+            for idx, r in members:
+                row = [Paragraph(str(idx), cell),
+                       Paragraph(escape(r.get('question', '')), cell)]
+                if show_score:
+                    row.append(Paragraph(f"{r.get('ai_percentage', 0)}%", cell))
+                rows.append(row)
+                style.append(('LINEBELOW', (0, len(rows) - 1), (-1, len(rows) - 1), 0.4,
+                              colors.HexColor(RULE)))
+            t = Table(rows, colWidths=widths, repeatRows=1)
+            t.setStyle(TableStyle(style))
+            tables.append(t)
 
-        widths = ([0.3 * inch, W - 0.3 * inch - 0.8 * inch, 0.8 * inch] if show_score
-                  else [0.3 * inch, W - 0.3 * inch])
-        t = Table(rows, colWidths=widths, repeatRows=1)
-        t.setStyle(TableStyle(style))
-        return t
+        return tables
+
 
     idx = 1
     if flagged:
@@ -665,7 +678,7 @@ def generate_pdf_report(results):
         nonlocal idx
         if COMPACT_ROUTINE_SECTIONS:
             el.extend(lead or [])
-            el.append(compact_table([(idx + i, r) for i, r in enumerate(group)],
+            el.extend(compact_table([(idx + i, r) for i, r in enumerate(group)],
                                     show_score=show_score))
             idx += len(group)
         else:
