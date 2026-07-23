@@ -359,6 +359,7 @@ def extract_answers_from_pdf(pdf_path, course_id='level2_gym', selected_units=No
 
         answers.append({
             'field': name,
+            'unit_id': unit_id,
             'unit': unit_label,
             'question': question_label,
             'answer': value_str,
@@ -368,41 +369,6 @@ def extract_answers_from_pdf(pdf_path, course_id='level2_gym', selected_units=No
 
     # Return in natural unit -> question order (PDF field order is scrambled).
     answers.sort(key=lambda a: a['order'])
-    return answers
-
-
-def extract_answers_fallback(pdf_path):
-    """Fallback extraction for PDFs without standard field mappings."""
-    reader = PdfReader(pdf_path)
-    fields = _safe_get_fields(reader)
-    if not fields:
-        return []
-
-    skip = re.compile(
-        r'^(Unit_[12]_Q|U5Q|U1_CB|Check Box|dateField|dateFiield|StartDate|resultFirst|'
-        r'resultSecond|resultThird|U6Result|LearnerName|AssessorName)',
-        re.IGNORECASE
-    )
-    answers = []
-    for name, field in fields.items():
-        if skip.match(name):
-            continue
-        value_str = _coerce_field_value(field.get('/V'))
-        if not value_str:
-            continue
-        if MCQ_VALUE_PATTERN.match(value_str) or len(value_str) < 40:
-            continue
-        if re.match(r'^\d{1,2}[./]\d{1,2}[./]\d{2,4}$', value_str):
-            continue
-        if re.match(r'^(PASS|REFER|FAIL)[\s\-]', value_str, re.IGNORECASE):
-            continue
-        answers.append({
-            'field': name,
-            'unit': 'Unknown Unit',
-            'question': f'Field: {name}',
-            'answer': value_str,
-            'course': 'unknown',
-        })
     return answers
 
 
@@ -1196,18 +1162,48 @@ def analyse():
 
     try:
         # Extract answers (filtered by selected_units if provided)
-        answers = extract_answers_from_pdf(tmp_path, course_id, selected_units=selected_units)
-        used_fallback = False
+        # Extract everything the course maps first, so a mismatched workbook can
+        # be told apart from a unit selection that simply has no answers in it.
+        all_answers = extract_answers_from_pdf(tmp_path, course_id)
 
-        if not answers:
-            answers = extract_answers_fallback(tmp_path)
-            used_fallback = True
-
-        if not answers:
+        if not all_answers:
+            # Previously this fell back to scraping every form field in the PDF.
+            # That produced a report of unlabelled "Field: Text Field 1106" rows
+            # with no unit, containing assessor feedback as well as learner work,
+            # and - because the fallback has no unit mapping - it ignored the
+            # selected units and analysed the whole workbook. A wrong report is
+            # worse than none, and the real cause is nearly always the wrong
+            # qualification or portfolio version, so say that instead.
+            course_name = COURSES_CONFIG['courses'][course_id]['name']
             return jsonify({
-                'error': 'No learner answers found. This may be a blank or scanned workbook.',
-                'is_blank': True,
+                'error': (
+                    f'No answers matched "{course_name}". This usually means the workbook is '
+                    'a different qualification or portfolio version than the one selected. '
+                    'Use "Which version do I have?" to check the front cover against the '
+                    'options, then try again. If the version is correct, the workbook may be '
+                    'blank or scanned rather than a fillable PDF.'
+                ),
+                'error_title': 'Workbook does not match the selected qualification',
+                'is_mismatch': True,
             }), 200
+
+        if selected_units:
+            answers = [a for a in all_answers if a.get('unit_id') in selected_units]
+            if not answers:
+                unit_labels = COURSES_CONFIG['courses'][course_id]['units']
+                chosen = ', '.join(unit_labels[u]['label'] for u in selected_units
+                                   if u in unit_labels) or 'the selected units'
+                return jsonify({
+                    'error': (
+                        f'The workbook matched "{COURSES_CONFIG["courses"][course_id]["name"]}", '
+                        f'but no answers were found in {chosen}. Those units may be unanswered — '
+                        'try a full workbook analysis, or select different units.'
+                    ),
+                    'error_title': 'No answers in the selected units',
+                    'is_blank': True,
+                }), 200
+        else:
+            answers = all_answers
 
         # Stream analysis results with analysis mode info
         return Response(
