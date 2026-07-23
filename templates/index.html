@@ -860,8 +860,8 @@
     <div class="logo-sub">AI Content Checker</div>
   </div>
   <div style="margin-left:auto; display:flex; align-items:center; gap:12px;">
-    <a class="help-btn" href="/training-deck" target="_blank" rel="noopener"
-       title="How to read the AI Detection Report">? &nbsp;Help</a>
+    <button type="button" class="help-btn" onclick="showWhatsNew()"
+            title="What's changed, and how to read the report">? &nbsp;Help</button>
     <div class="header-badge">Built by PT Academy, Powered by ZeroGPT</div>
   </div>
 </header>
@@ -935,6 +935,51 @@
     </div>
 
     <button class="btn-analyse" id="btn-analyse" disabled>Analyse workbook</button>
+  </div>
+
+  <!-- First-visit notice. Shown once per assessor, keyed by version so a future
+       change can re-announce itself without nagging in the meantime. -->
+  <div class="modal-backdrop" id="whatsnew-modal" onclick="if(event.target===this) dismissWhatsNew()">
+    <div class="modal rpt" role="dialog" aria-modal="true" aria-labelledby="whatsnew-title" style="max-width: 620px;">
+      <div class="modal-head">
+        <div>
+          <div class="rpt-eyebrow">UPDATED &middot; JULY 2026</div>
+          <div class="modal-title" id="whatsnew-title" style="margin-top:4px;">Your AI reports have changed</div>
+        </div>
+        <button class="modal-close" onclick="dismissWhatsNew()" aria-label="Close">&#10005;</button>
+      </div>
+
+      <div style="font-size:13.5px; line-height:1.6; color:var(--r-ink-soft); margin-top:10px;">
+        <p style="margin-bottom:10px;">Three things are different, and one of them changes how you read every answer:</p>
+        <ul style="list-style:none; padding:0;">
+          <li style="padding:7px 0; border-top:1px solid var(--r-rule);">
+            <strong style="color:var(--r-ink);">There is no overall percentage.</strong>
+            Every report now opens with a <strong style="color:var(--r-ink);">Portfolio Verdict</strong> telling you what to do.
+          </li>
+          <li style="padding:7px 0; border-top:1px solid var(--r-rule);">
+            <strong style="color:var(--r-ink);">Answers needing review come first</strong>, most serious at the top &mdash; with the specific sentences flagged.
+          </li>
+          <li style="padding:7px 0; border-top:1px solid var(--r-rule);">
+            <strong style="color:var(--r-ink);">Verdict is the primary signal; AI Score is secondary</strong> and the two can disagree. Where they differ, follow the Verdict.
+          </li>
+        </ul>
+        <p style="margin-top:12px; font-size:12.5px; color:var(--r-ink-muted);">
+          Reports issued before 23 July 2026 used the old logic and are worth re-running.
+        </p>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap;">
+        <a class="btn-analyse" href="/training-deck" target="_blank" rel="noopener"
+           onclick="dismissWhatsNew()"
+           style="flex:1; min-width:200px; text-align:center; text-decoration:none; margin-top:0;">
+          Read the 2-minute briefing
+        </a>
+        <button class="mode-btn" style="flex:0 0 auto; padding:13px 20px;" onclick="dismissWhatsNew()">Not now</button>
+      </div>
+      <p style="font-size:11.5px; color:var(--r-ink-muted); margin-top:10px;">
+        You can reopen this any time from <strong>Help</strong> at the top of the page.
+      </p>
+    </div>
   </div>
 
   <!-- Portfolio version chooser: cover pages of each workbook, so an assessor
@@ -1148,9 +1193,31 @@ courseSelect.addEventListener('change', (e) => {
   updateAnalyseButton();
 });
 
+// Bump the version to re-announce after a future change; assessors who have
+// already dismissed this one will then see the new notice once.
+const WHATS_NEW_VERSION = '2026-07-23';
+
+function dismissWhatsNew() {
+  document.getElementById('whatsnew-modal').classList.remove('show');
+  try { localStorage.setItem('pta_whatsnew_seen', WHATS_NEW_VERSION); } catch (e) {}
+}
+function showWhatsNew() { document.getElementById('whatsnew-modal').classList.add('show'); }
+
+(function () {
+  let seen = null;
+  // Private browsing or blocked storage throws; show the notice rather than
+  // suppress it on an error.
+  try { seen = localStorage.getItem('pta_whatsnew_seen'); } catch (e) {}
+  if (seen !== WHATS_NEW_VERSION) {
+    document.addEventListener('DOMContentLoaded', showWhatsNew);
+  }
+})();
+
 function showCovers() { document.getElementById('covers-modal').classList.add('show'); }
 function hideCovers() { document.getElementById('covers-modal').classList.remove('show'); }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') hideCovers(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { hideCovers(); dismissWhatsNew(); }
+});
 
 function setAnalysisMode(mode) {
   analysisMode = mode;
