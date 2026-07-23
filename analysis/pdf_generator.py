@@ -29,55 +29,18 @@ from reportlab.platypus import (
     Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
 )
 
-# ── DESIGN TOKENS ─────────────────────────────────────────────────────────────
+from analysis.report_content import (
+    BRAND_GOLD, CLASSIFICATION_STYLE, FLAGGED_GROUP_LABELS, INK, INK_MUTED,
+    INK_SOFT, PRIORITY_ATTENTION, PRIORITY_CLEAR, PRIORITY_CRITICAL,
+    PRIORITY_NONE, READING_GUIDE, RULE, SURFACE, UNASSESSED, WHITE,
+    build_notes, build_recommendation, flagged_sort_key, review_level,
+    verdict_mix, verdict_mix_bar,
+)
 
-BRAND_GOLD = '#c6a906'
-INK = '#111111'          # primary text
-INK_SOFT = '#55534d'     # secondary text
-INK_MUTED = '#8a8880'    # captions
-RULE = '#dedbd2'         # hairlines
-SURFACE = '#f7f6f2'      # tinted panel
-WHITE = '#ffffff'
-
-# Review-priority palette, validated on a white surface: lightness band PASS,
-# chroma floor PASS, CVD separation PASS (worst adjacent dE 13.9 deutan),
-# normal-vision floor PASS (15.7). The contrast WARN on the attention step is
-# discharged by always pairing it with a visible text label.
-PRIORITY_CRITICAL = '#d03b3b'   # AI
-PRIORITY_ATTENTION = '#ec835a'  # Mixed / Human-with-AI-parts
-PRIORITY_CLEAR = '#2a78d6'      # Human
-PRIORITY_NONE = '#9a9a94'       # not assessed (neutral, not a data colour)
-
-# classification -> (priority colour, badge label)
-CLASSIFICATION_STYLE = {
-    'AI': (PRIORITY_CRITICAL, 'AI'),
-    'Mixed': (PRIORITY_ATTENTION, 'MIXED'),
-    'AI Polished': (PRIORITY_ATTENTION, 'HUMAN + AI PARTS'),
-    'Human': (PRIORITY_CLEAR, 'HUMAN'),
-    'Insufficient Text': (PRIORITY_NONE, 'NOT ASSESSED'),
-    'Unknown': (PRIORITY_NONE, 'NO RESULT'),
-}
-
-REVIEW_LEVEL_STYLE = {
-    'Detailed Review': (PRIORITY_CRITICAL, 'Detailed Review Required',
-                        'Widespread AI indicators — review the whole portfolio.'),
-    'Review Required': (PRIORITY_ATTENTION, 'Review Flagged Answers',
-                        'AI indicators found in specific answers.'),
-    'Spot Check': (BRAND_GOLD, 'Spot-Check Suggested',
-                   'Minor indicators only; no outright AI verdicts.'),
-    'No Indicators': (PRIORITY_CLEAR, 'No AI Indicators Found',
-                      'Every assessed answer was classified as human-written.'),
-    'Insufficient Data': (PRIORITY_NONE, 'Not Enough Assessable Text',
-                          'Too few answers could be assessed to score the portfolio.'),
-}
-
-UNASSESSED = ('Insufficient Text', 'Unknown')
-
-# Render the Human-classified and Not-assessed sections as a compact table
-# rather than as full cards. These answers need no action, so they are listed
-# for completeness only and should take as little space as possible - full
-# cards for dozens of them buried the flagged answers. Set False to show the
-# verdict and full answer text for every answer instead.
+# Render the routine sections as a compact table rather than as full cards.
+# These answers need no action, so they are listed for completeness only and
+# should take as little space as possible. Set False to show the verdict and
+# full answer text for every answer instead.
 COMPACT_ROUTINE_SECTIONS = True
 
 
@@ -318,8 +281,7 @@ def generate_pdf_report(results):
     el.append(Spacer(1, 12))
 
     # ── REVIEW LEVEL ─────────────────────────────────────────────────────────
-    accent, level_title, level_sub = REVIEW_LEVEL_STYLE.get(
-        portfolio_risk, (PRIORITY_NONE, str(portfolio_risk), ''))
+    accent, level_title, level_sub = review_level(portfolio_risk)
     banner_body = [Paragraph('PORTFOLIO VERDICT', s['eyebrow']), Spacer(1, 2),
                    Paragraph(escape(level_title), s['banner'])]
     if level_sub:
@@ -359,19 +321,8 @@ def generate_pdf_report(results):
     el.append(Spacer(1, 15))
 
     # ── VERDICT MIX ──────────────────────────────────────────────────────────
-    dist = [
-        ('AI', ai_count, PRIORITY_CRITICAL),
-        ('Mixed signals', mixed_count, PRIORITY_ATTENTION),
-        ('Human, may include AI parts', ai_polished_count, PRIORITY_ATTENTION),
-        ('Human', human_count, PRIORITY_CLEAR),
-        ('Not assessed — too little text', unassessable_count, PRIORITY_NONE),
-    ]
-    bar_dist = [
-        ('AI', ai_count, PRIORITY_CRITICAL),
-        ('Needs a look', mixed_count + ai_polished_count, PRIORITY_ATTENTION),
-        ('Human', human_count, PRIORITY_CLEAR),
-        ('Not assessed', unassessable_count, PRIORITY_NONE),
-    ]
+    dist = verdict_mix(summary)
+    bar_dist = verdict_mix_bar(summary)
     el.append(Paragraph('VERDICT MIX', s['eyebrow']))
     el.append(Spacer(1, 4))
     bar = _distribution_bar(bar_dist, total_answers, W)
@@ -382,42 +333,8 @@ def generate_pdf_report(results):
     el.append(Spacer(1, 13))
 
     # ── WHAT TO DO ───────────────────────────────────────────────────────────
-    if portfolio_risk == 'Insufficient Data':
-        rec = (f'Only {assessed_count} of {total_answers} answers contained enough text for '
-               'the detector to judge — too few to score the portfolio. Treat the individual '
-               'verdicts as indicative only and rely on your own judgement.')
-    elif portfolio_risk == 'Detailed Review':
-        rec = (f'{ai_count} of {assessed_count} assessed answers carry an outright AI verdict — '
-               'enough to be a pattern rather than isolated results. Review the whole portfolio, '
-               'not only the flagged answers, and consider verifying understanding through '
-               'additional questioning or practical assessment.')
-    elif portfolio_risk == 'Review Required':
-        rec = (f'{ai_count} of {assessed_count} assessed answers carry an AI verdict, and '
-               f'{flagged_count} in total were not classified as plainly human-written. Read '
-               'each flagged answer — where specific sentences were identified they are '
-               'listed with it — and judge whether the writing matches the learner\'s work '
-               'elsewhere.')
-    elif portfolio_risk == 'Spot Check':
-        rec = (f'No answer carries an outright AI verdict, but {flagged_count} of '
-               f'{assessed_count} showed mixed or partial indicators. A spot-check of the '
-               'flagged answers is sufficient.')
-    else:
-        rec = ('Every assessed answer was classified as human-written, with no AI or '
-               'mixed-signal verdicts.')
-
-    notes = []
-    if quality_note:
-        notes.append(escape(quality_note))
-    elif short_answer_count and portfolio_risk != 'Insufficient Data':
-        notes.append(f'{short_answer_count} of {total_answers} answers are under 50 words; '
-                     'detection is less reliable on short text.')
-    notes.append('There is no overall portfolio percentage: averaging verdicts produces a '
-                 'figure with no real meaning and invites being read as a grade. Use the review '
-                 'level above and the individual verdicts below.')
-    notes.append('AI detection is indicative, not conclusive. These results identify answers '
-                 'worth reading closely; they are not evidence of misconduct on their own and '
-                 'should be weighed alongside the learner\'s other work and your professional '
-                 'judgement.')
+    rec = summary.get('recommendation') or build_recommendation(summary)
+    notes = summary.get('notes') or build_notes(summary)
 
     action = Table([[[Paragraph('WHAT TO DO', s['eyebrow']), Spacer(1, 4),
                       Paragraph(rec, s['body']), Spacer(1, 6),
@@ -437,23 +354,8 @@ def generate_pdf_report(results):
     # telling them that is expected rather than a fault.
     term_style = ParagraphStyle('Term', parent=s['td'], fontName='Helvetica-Bold',
                                 textColor=colors.HexColor(INK))
-    guide_rows = [
-        [Paragraph('Verdict', term_style),
-         Paragraph('<b>Primary indicator.</b> The overall assessment of the answer. This is the '
-                   'main signal, and it is what the classification and the portfolio verdict '
-                   'are built from.', s['bodysoft'])],
-        [Paragraph('AI Score', term_style),
-         Paragraph('<b>Secondary indicator.</b> How much of the answer reads as AI-generated. '
-                   'It is not a probability and is measured separately from the Verdict, so the '
-                   'two can disagree — an answer may show 0% with a mixed signals verdict, or '
-                   '100% with a human-leaning one. Neither is an error. '
-                   '<b>Where they differ, follow the Verdict.</b>', s['bodysoft'])],
-        [Paragraph('Flagged sentences', term_style),
-         Paragraph('Where specific sentences were identified as AI-generated, they are listed '
-                   'in red with the answer. These show exactly which wording produced the '
-                   'result and are the quickest way into a review. An answer can carry a '
-                   'flagged verdict without any — the two are separate checks.', s['bodysoft'])],
-    ]
+    guide_rows = [[Paragraph(term, term_style), Paragraph(body, s['bodysoft'])]
+                  for term, body in READING_GUIDE]
     guide = Table(guide_rows, colWidths=[1.35 * inch, W - 1.35 * inch - 22])
     guide.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -472,19 +374,9 @@ def generate_pdf_report(results):
     el.append(guide_panel)
 
     # ── ANSWER DETAIL ────────────────────────────────────────────────────────
-    severity_rank = {'AI': 0, 'Mixed': 1, 'AI Polished': 2}
-
-    def flagged_key(r):
-        # Most serious classification first; within a classification the stronger
-        # stronger wording first (level 8 "is AI/GPT Generated" ahead of level 6
-        # "Most Likely..."); then portfolio order so it stays predictable.
-        return (severity_rank.get(r.get('overall_classification'), 3),
-                -(r.get('feedback_level') or 0),
-                r.get('order', 0))
-
     flagged = sorted([r for r in answer_results
                       if r.get('overall_classification') not in ('Human',) + UNASSESSED],
-                     key=flagged_key)
+                     key=flagged_sort_key)
     human = sorted([r for r in answer_results
                     if r.get('overall_classification') == 'Human'],
                    key=lambda x: x.get('order', 0))
@@ -642,11 +534,7 @@ def generate_pdf_report(results):
             'severity — outright AI verdicts first, then mixed signals, then answers judged '
             'human but possibly containing AI parts. See <i>Reading each answer</i> on page 1 '
             'for how Verdict and AI Score relate.')
-        group_labels = {
-            'AI': 'AI — judged AI-generated',
-            'Mixed': 'MIXED SIGNALS — partly AI-generated',
-            'AI Polished': 'HUMAN, MAY INCLUDE AI PARTS',
-        }
+        group_labels = FLAGGED_GROUP_LABELS
         previous_group = None
         for r in flagged:
             group = r.get('overall_classification')

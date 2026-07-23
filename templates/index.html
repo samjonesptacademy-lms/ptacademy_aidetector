@@ -30,6 +30,83 @@
     --radius-lg: 16px;
   }
 
+  /* ── Report-matching tokens (mirror analysis/report_content.py) ── */
+  :root {
+    --r-critical: #d03b3b;
+    --r-attention: #ec835a;
+    --r-clear: #2a78d6;
+    --r-none: #9a9a94;
+    --r-gold: #c6a906;
+    --r-ink: #111111;
+    --r-ink-soft: #55534d;
+    --r-ink-muted: #8a8880;
+    --r-rule: #dedbd2;
+    --r-surface: #f7f6f2;
+  }
+  .rpt { color: var(--r-ink); }
+  .rpt-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--r-ink-muted); }
+  .rpt-banner { display: flex; align-items: stretch; gap: 0; background: var(--r-surface); margin-bottom: 18px; }
+  .rpt-banner-spine { flex: 0 0 5px; }
+  .rpt-banner-body { padding: 13px 16px; }
+  .rpt-banner-title { font-size: 21px; font-weight: 700; line-height: 1.2; margin-top: 3px; }
+  .rpt-banner-sub { font-size: 13px; color: var(--r-ink-soft); margin-top: 3px; }
+  .rpt-tiles { display: grid; grid-template-columns: repeat(4, 1fr); margin-bottom: 22px; }
+  .rpt-tile { padding: 0 14px; border-left: 1px solid var(--r-rule); }
+  .rpt-tile:first-child { padding-left: 0; border-left: 0; }
+  .rpt-tile-num { font-size: 29px; font-weight: 700; line-height: 1.05; }
+  .rpt-tile-label { font-size: 11px; color: var(--r-ink-muted); margin-top: 4px; line-height: 1.4; }
+  .rpt-bar { display: flex; gap: 2px; height: 13px; margin: 7px 0 9px; }
+  .rpt-bar span { display: block; }
+  .rpt-legend { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .rpt-legend td { padding: 4px 0; border-bottom: 1px solid var(--r-rule); }
+  .rpt-legend tr:last-child td { border-bottom: 0; }
+  .rpt-legend .sw { width: 14px; }
+  .rpt-legend .sw i { display: inline-block; width: 10px; height: 10px; }
+  .rpt-legend .num { text-align: right; width: 52px; font-weight: 600; }
+  .rpt-legend .pct { text-align: right; width: 62px; color: var(--r-ink-soft); }
+  .rpt-panel { background: var(--r-surface); border-top: 2px solid var(--r-gold); padding: 13px 16px; margin-bottom: 16px; }
+  .rpt-panel-plain { background: transparent; }
+  .rpt-rec { font-size: 13.5px; line-height: 1.55; margin-top: 6px; }
+  .rpt-notes { font-size: 11.5px; line-height: 1.55; color: var(--r-ink-muted); margin-top: 9px; }
+  .rpt-guide { margin-top: 8px; }
+  .rpt-guide-row { display: grid; grid-template-columns: 128px 1fr; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--r-rule); font-size: 12.5px; line-height: 1.55; color: var(--r-ink-soft); }
+  .rpt-guide-row:last-child { border-bottom: 0; }
+  .rpt-guide-term { font-weight: 700; color: var(--r-ink); }
+  .rpt-section-title { font-size: 18px; font-weight: 700; margin-top: 26px; }
+  .rpt-section-cap { font-size: 11.5px; color: var(--r-ink-muted); line-height: 1.55; margin-top: 3px; margin-bottom: 12px; }
+  .rpt-group-band { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding-bottom: 5px; border-bottom: 1px solid currentColor; margin: 16px 0 12px; }
+  /* Report cards are flat - no border, radius or fill - so the old card chrome
+     must not apply on top of them. */
+  /* Report cards are flat - no border, radius or fill. Selector carries both
+     classes so it beats the .answer-card block defined later in this sheet. */
+  .answer-card.rpt-card, .rpt-card {
+    display: flex; gap: 0; margin-bottom: 18px;
+    background: none; border: 0; border-radius: 0; overflow: visible;
+  }
+  .answer-card.rpt-card:hover { border-color: transparent; }
+  .rpt-card-spine { flex: 0 0 3px; }
+  .rpt-card-body { flex: 1; padding-left: 15px; min-width: 0; }
+  .rpt-meta { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; font-size: 12px; color: var(--r-ink-soft); }
+  .rpt-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: #fff; padding: 3px 7px; border-radius: 3px; white-space: nowrap; }
+  .rpt-q { font-size: 14px; font-weight: 700; line-height: 1.35; margin-top: 8px; }
+  .rpt-unit { font-size: 11.5px; color: var(--r-ink-muted); margin-top: 3px; }
+  .rpt-verdict { font-size: 12.5px; color: var(--r-ink-soft); margin-top: 8px; line-height: 1.5; }
+  .rpt-flags-head { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--r-critical); margin-top: 10px; }
+  .rpt-flag { font-size: 12.5px; color: var(--r-critical); line-height: 1.5; padding-left: 11px; margin-top: 3px; }
+  .rpt-answer { background: var(--r-surface); padding: 9px 11px; font-size: 12.5px; color: var(--r-ink-soft); line-height: 1.55; margin-top: 10px; white-space: pre-wrap; }
+  .rpt-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  .rpt-table th { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--r-ink-muted); text-align: left; padding: 0 8px 4px 0; border-bottom: 1px solid var(--r-ink-muted); }
+  .rpt-table th.n { text-align: right; }
+  .rpt-table td { padding: 3px 8px 3px 0; border-bottom: 1px solid var(--r-rule); line-height: 1.4; vertical-align: top; }
+  .rpt-table td.n { text-align: right; white-space: nowrap; }
+  .rpt-table td.idx { width: 30px; color: var(--r-ink-soft); }
+  .rpt-table .band td { background: var(--r-surface); font-weight: 700; font-size: 11px; padding: 5px 8px; border-bottom: 0; }
+  @media (max-width: 720px) {
+    .rpt-tiles { grid-template-columns: repeat(2, 1fr); row-gap: 16px; }
+    .rpt-tile:nth-child(3) { padding-left: 0; border-left: 0; }
+    .rpt-guide-row { grid-template-columns: 1fr; gap: 2px; }
+  }
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
@@ -776,95 +853,42 @@
   <!-- RESULTS -->
   <div id="results">
 
-    <!-- Summary -->
-    <div class="summary-card">
-      <div class="summary-header">
-        <div class="summary-risk-badge" id="overall-badge"></div>
-        <div class="summary-info">
-          <h2 id="overall-heading">Analysis Complete</h2>
-          <div class="filename" id="result-filename"></div>
-          <div class="filename" id="result-course" style="margin-top: 4px;"></div>
-        </div>
+    <!-- Summary — mirrors the PDF page 1 exactly -->
+    <div class="summary-card rpt">
+      <div class="rpt-eyebrow">PT ACADEMY</div>
+      <h2 style="font-size:24px; font-weight:700; line-height:1.2; margin-top:2px;">AI Detection Report</h2>
+      <div style="font-size:12.5px; color:var(--r-ink-soft); line-height:1.6; margin-top:6px;">
+        <div id="result-filename"></div>
+        <div id="result-course"></div>
       </div>
-      <div class="summary-stats">
-        <div class="stat-box">
-          <div class="stat-num" id="stat-total" style="color:var(--text)">—</div>
-          <div class="stat-label">Answers Checked</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-num stat-high" id="stat-ai">—</div>
-          <div class="stat-label">AI</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-num stat-medium" id="stat-mixed">—</div>
-          <div class="stat-label">Mixed</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-num stat-medium" id="stat-ai-polished">—</div>
-          <div class="stat-label">Human + AI parts</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-num stat-safe" id="stat-human">—</div>
-          <div class="stat-label">Human</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-num" id="stat-unassessable" style="color:var(--muted)">—</div>
-          <div class="stat-label">Not Assessable</div>
+
+      <div class="rpt-banner" id="rpt-banner" style="margin-top:16px;">
+        <div class="rpt-banner-spine" id="rpt-banner-spine"></div>
+        <div class="rpt-banner-body">
+          <div class="rpt-eyebrow">PORTFOLIO VERDICT</div>
+          <div class="rpt-banner-title" id="rpt-verdict-title">—</div>
+          <div class="rpt-banner-sub" id="rpt-verdict-sub"></div>
         </div>
       </div>
 
-      <!-- Portfolio Score Card -->
-      <div class="portfolio-score-card" id="portfolio-score-card" style="display:none;">
-        <div class="portfolio-score-title">📊 Portfolio Assessment Summary</div>
-        <div class="portfolio-metrics">
-          <div class="portfolio-metric">
-            <div class="portfolio-metric-value" id="portfolio-flagged" style="color:var(--accent)">—</div>
-            <div class="portfolio-metric-label">Answers Flagged for Review</div>
-          </div>
-          <div class="portfolio-metric">
-            <div class="portfolio-metric-value" id="portfolio-assessed" style="color:var(--accent)">—</div>
-            <div class="portfolio-metric-label">Answers Assessed</div>
-          </div>
-        </div>
-        <div id="quality-note-container"></div>
+      <div class="rpt-tiles" id="rpt-tiles"></div>
 
-        <div style="margin-top: 12px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);">
-          <div style="font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">Reading each answer</div>
-          <div style="font-size: 12px; color: var(--muted); line-height: 1.55;">
-            <div style="margin-bottom: 5px;"><strong style="color: var(--text);">Verdict</strong> — primary indicator. The overall assessment of the answer; follow this one.</div>
-            <div style="margin-bottom: 5px;"><strong style="color: var(--text);">AI Score %</strong> — secondary. Not a probability, and measured separately from the Verdict, so the two can disagree — an answer may show 0% with a Mixed verdict, or 100% with a human-leaning one. Neither is an error. <strong style="color: var(--text);">Where they differ, follow the Verdict.</strong></div>
-            <div><strong style="color: var(--text);">Flagged sentences</strong> — where specific sentences were identified they are listed in red on the answer. An answer can be flagged without any; the two are separate checks.</div>
-          </div>
-        </div>
+      <div class="rpt-eyebrow">VERDICT MIX</div>
+      <div class="rpt-bar" id="rpt-bar"></div>
+      <table class="rpt-legend"><tbody id="rpt-legend"></tbody></table>
 
-        <!-- Cost Breakdown (shown below portfolio metrics) -->
-        <div id="cost-breakdown" style="margin-top: 12px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); display:none;">
-          <div style="font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; margin-bottom: 8px;">💰 Analysis Cost</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px;">
-            <div>
-              <span style="color: var(--muted);">Total Cost:</span>
-              <span style="font-family: var(--mono); font-weight: 600; color: var(--accent); margin-left: 6px;" id="total-cost">—</span>
-            </div>
-            <div>
-              <span style="color: var(--muted);">Total Tokens:</span>
-              <span style="font-family: var(--mono); font-weight: 600; margin-left: 6px;" id="total-tokens">—</span>
-            </div>
-            <div>
-              <span style="color: var(--muted);">Prompt Tokens:</span>
-              <span style="font-family: var(--mono); font-weight: 500; color: var(--green); margin-left: 6px;" id="prompt-tokens">—</span>
-            </div>
-            <div>
-              <span style="color: var(--muted);">Completion Tokens:</span>
-              <span style="font-family: var(--mono); font-weight: 500; color: var(--amber); margin-left: 6px;" id="completion-tokens">—</span>
-            </div>
-          </div>
-        </div>
-
-        <button id="download-pdf-btn" class="download-button" style="display:none;" onclick="downloadReport()">📄 Download PDF Report</button>
+      <div class="rpt-panel" style="margin-top:18px;">
+        <div class="rpt-eyebrow">WHAT TO DO</div>
+        <div class="rpt-rec" id="rpt-rec"></div>
+        <div class="rpt-notes" id="rpt-notes"></div>
       </div>
-      <div class="disclaimer">
-        <strong>⚠ Assessor Note:</strong> This tool flags answers for review — it does not make a definitive determination. No AI detector is 100% accurate. High-risk flags should prompt a conversation with the learner, not automatic action. Use as one signal alongside your professional judgement.
+
+      <div class="rpt-panel rpt-panel-plain">
+        <div class="rpt-eyebrow">READING EACH ANSWER</div>
+        <div class="rpt-guide" id="rpt-guide"></div>
       </div>
+
+      <button id="download-pdf-btn" class="download-button" style="display:none;" onclick="downloadReport()">📄 Download PDF Report</button>
     </div>
 
     <!-- View switch: interactive cards, or the report itself -->
@@ -898,10 +922,6 @@
           <button class="filter-tab" data-filter="AI Polished" onclick="filterCards('AI Polished', this)" style="color:var(--amber)">Human + AI parts</button>
           <button class="filter-tab" data-filter="Human" onclick="filterCards('Human', this)" style="color:var(--green)">Human</button>
           <button class="filter-tab" data-filter="Insufficient Text" onclick="filterCards('Insufficient Text', this)" style="color:var(--muted)">Not assessed</button>
-        </div>
-        <div class="filter-tabs">
-          <button class="filter-tab sort-tab active" data-sort="default" onclick="sortCards('default', this)">Original</button>
-          <button class="filter-tab sort-tab" data-sort="severity" onclick="sortCards('severity', this)">Most serious first</button>
         </div>
       </div>
     </div>
@@ -1168,7 +1188,6 @@ async function handleStreamingResponse(response) {
         if (event.type === 'start') {
           totalAnswers = event.total;
           metadata = event;
-          document.getElementById('overall-heading').textContent = 'Analysing workbook…';
           document.getElementById('result-filename').textContent = event.filename;
           document.getElementById('result-course').textContent = event.course_name;
         }
@@ -1186,43 +1205,11 @@ async function handleStreamingResponse(response) {
           // Remove progress div
           progressDiv.remove();
 
-          // Render final summary
-          const badge = document.getElementById('overall-badge');
+          // Render the summary from the same content the PDF prints.
           const summary = event.summary;
-          badge.className = 'summary-risk-badge risk-badge-' + summary.overall_risk;
+          renderReportSummary(summary);
 
-          // Heading follows the banded portfolio risk, not a mean percentage.
-          const headings = {
-            'Detailed Review': '⚠️ Widespread AI Indicators — Detailed Review Required',
-            'Review Required': '🔍 AI Indicators Found — Review Flagged Answers',
-            'Spot Check': '🔎 Minor Indicators — Spot-Check Suggested',
-            'No Indicators': '✅ No AI Indicators Found',
-            'Insufficient Data': 'ℹ️ Not Enough Assessable Text to Score'
-          };
-          document.getElementById('overall-heading').textContent =
-            headings[summary.portfolio_risk] || 'Analysis Complete';
-
-          document.getElementById('stat-total').textContent = summary.total_answers;
-          document.getElementById('stat-ai').textContent = summary.ai_count;
-          document.getElementById('stat-mixed').textContent = summary.mixed_count;
-          document.getElementById('stat-ai-polished').textContent = summary.ai_polished_count;
-          document.getElementById('stat-human').textContent = summary.human_count;
-          document.getElementById('stat-unassessable').textContent = summary.unassessable_count;
-
-          // Display portfolio score metrics
           if (summary.assessed_count !== undefined) {
-            document.getElementById('portfolio-score-card').style.display = 'block';
-            document.getElementById('portfolio-flagged').textContent =
-              summary.flagged_count + ' of ' + summary.assessed_count;
-            document.getElementById('portfolio-assessed').textContent =
-              summary.assessed_count + ' of ' + summary.total_answers;
-
-            // Display quality note if present
-            const qualityContainer = document.getElementById('quality-note-container');
-            if (summary.quality_note) {
-              qualityContainer.innerHTML = `<div class="quality-note-warning">⚠️ ${summary.quality_note}</div>`;
-            }
-
             // Show download button and store session ID
             const downloadBtn = document.getElementById('download-pdf-btn');
             downloadBtn.style.display = 'inline-block';
@@ -1276,149 +1263,10 @@ function resetToUpload() {
 }
 
 // ── RENDER RESULTS ──
-function buildAnswerCard(a, idx) {
-  const card = document.createElement('div');
-
-  // Use classification for card styling, and risk_level if available
-  const classification = a.overall_classification || 'Unknown';
-  const riskLevel = a.risk_level || a.risk || 'unknown';
-  const riskClass = `risk-${riskLevel.toLowerCase()}`;
-  const classificationClass = `classification-${classification.replace(/\s+/g, '-')}`;
-
-  card.className = `answer-card ${classificationClass} ${riskClass}`;
-  card.dataset.classification = classification;
-  card.dataset.risk = riskLevel;
-
-  // Classification badge styling
-  const classificationMap = {
-    'AI': { class: 'ai', label: 'AI' },
-    'Mixed': { class: 'mixed', label: 'Mixed' },
-    'AI Polished': { class: 'ai-polished', label: 'Human + AI parts' },
-    'Human': { class: 'human', label: 'Human' },
-    'Insufficient Text': { class: 'unknown', label: 'Not assessed' },
-    'Unknown': { class: 'unknown', label: 'No result' }
-  };
-  const classInfo = classificationMap[classification] || { class: 'unknown', label: classification };
-
-  // AI probability (simplified single metric)
-  const ai_pct = a.ai_percentage || 0;
-  const scoreClass = '';  // severity is carried by the classification badge
-
-  // Sentence breakdown section
-  let sentenceBreakdownHtml = '';
-  if (a.sentences && a.sentences.length > 0) {
-    const sentenceItems = a.sentences.map(s => {
-      const sentClass = classificationMap[s.classification] || { class: 'unknown', label: s.classification };
-      return `
-        <div class="sentence-item">
-          <div class="sentence-num">Sentence ${s.sentence_number}:</div>
-          <div class="sentence-text">"${escapeHtml(s.text.substring(0, 100))}${s.text.length > 100 ? '...' : ''}"</div>
-          <div>
-            <span class="sentence-classification ${sentClass.class}">${sentClass.label}</span>
-            <div class="sentence-reason">${escapeHtml(s.reason || '')}</div>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    sentenceBreakdownHtml = `
-      <div class="sentence-breakdown">
-        <div class="sentence-breakdown-title">📝 Sentence-by-Sentence Analysis</div>
-        ${sentenceItems}
-      </div>
-    `;
-  }
-
-  // AI signals
-  const aiSignalItems = (a.ai_signals || []).map(r =>
-    `<div class="signal-item">
-      <div class="signal-dot dot-red"></div>
-      <div class="signal-label">${escapeHtml(r)}</div>
-    </div>`
-  ).join('');
-
-  // Human signals
-  const humanSignalItems = (a.human_signals || []).map(r =>
-    `<div class="signal-item">
-      <div class="signal-dot dot-green"></div>
-      <div class="signal-label">${escapeHtml(r)}</div>
-    </div>`
-  ).join('');
-
-  const allSignals = aiSignalItems + humanSignalItems;
-
-  // Word count chip
-  const chips = a.word_count ? `<div class="metric-chip">Words: <span>${a.word_count}</span></div>` : '';
-
-  // Store answer texts by idx so toggleFullAnswer can retrieve without inline encoding
-  answerTextStore[idx] = {
-    full: a.answer_full || a.answer_preview || '',
-    preview: a.answer_preview || '',
-  };
-  const previewAnswer = escapeHtml(a.answer_preview || '');
-  const isLong = (a.answer_full || '').length > 300;
-
-  // Answers the detector could not judge are shown as not scored, and its raw
-  // verdict is withheld - displaying it would invite reading a result we have
-  // already declared unreliable.
-  const notAssessed = a.overall_classification === 'Insufficient Text'
-                   || a.overall_classification === 'Unknown';
-
-  let confidenceWarning = '';
-  if (notAssessed) {
-    confidenceWarning = `
-      <div style="margin-bottom: 12px; padding: 8px 12px; background: rgba(120,120,120,0.1); border-left: 3px solid var(--muted); border-radius: var(--radius);">
-        <div style="font-size: 11px; font-weight: 600; color: var(--muted);">Not assessed</div>
-        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">Too little text to reach a reliable verdict. Excluded from the counts above.</div>
-      </div>
-    `;
-  } else if (a.low_confidence_flag) {
-    confidenceWarning = `
-      <div style="margin-bottom: 12px; padding: 8px 12px; background: rgba(245,166,35,0.1); border-left: 3px solid var(--amber); border-radius: var(--radius);">
-        <div style="font-size: 11px; font-weight: 600; color: var(--amber);">⚠️ Low Confidence (Short Answer)</div>
-        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">This answer has fewer than 50 words. Detection is less reliable on short text.</div>
-      </div>
-    `;
-  }
-
-  const verdictHtml = (a.overall_verdict && !notAssessed)
-    ? `<div class="verdict-box verdict-${a.risk_level ? a.risk_level.toLowerCase() : (a.risk || 'low')}">${escapeHtml(a.overall_verdict)}</div>`
-    : '';
-
-  // Sentences the detector itself flagged - the most directly actionable output.
-  const flaggedSentences = a.ai_flagged_sentences || [];
-  const flaggedHtml = (flaggedSentences.length && !notAssessed) ? `
-    <div style="margin: 10px 0; padding: 8px 12px; background: rgba(255,79,106,0.08); border-left: 3px solid var(--red, #ff4f6a); border-radius: var(--radius);">
-      <div style="font-size: 11px; font-weight: 600; color: var(--red, #ff4f6a); margin-bottom: 4px;">Sentences flagged as AI-generated</div>
-      ${flaggedSentences.slice(0, 10).map(t =>
-        `<div style="font-size: 11px; color: var(--muted); margin-top: 3px;">• ${escapeHtml(String(t))}</div>`
-      ).join('')}
-    </div>` : '';
-
-  card.innerHTML = `
-    <div class="card-header" onclick="toggleCard(this)">
-      <span class="classification-badge ${classInfo.class}">${classInfo.label}</span>
-      <span class="card-score ${notAssessed ? '' : scoreClass}" title="AI Score — how much of the answer reads as AI-generated. Not a probability, and not what the verdict is derived from.">${notAssessed ? '—' : ai_pct + '%'}</span>
-      <span class="card-question">${escapeHtml(a.question)}${a.low_confidence_flag ? ' ⚠️' : ''}</span>
-      <span class="card-chevron" id="chev-${idx}">▼</span>
-    </div>
-    <div class="card-body" id="body-${idx}">
-      <div class="card-unit-label">${escapeHtml(a.unit)}</div>
-      ${confidenceWarning}
-      ${verdictHtml}
-      ${flaggedHtml}
-      <div class="answer-text" id="ans-${idx}">${previewAnswer}</div>
-      ${isLong ? `<button class="answer-toggle" onclick="toggleFullAnswer(${idx}, this)">Show full answer ↓</button>` : ''}
-      ${sentenceBreakdownHtml}
-      ${allSignals ? `<div class="signals-grid">${allSignals}</div>` : ''}
-      <div class="metrics-row">${chips}</div>
-    </div>
-  `;
-
-  return card;
-}
-
+// Answer card in the report's own layout: priority spine, badge, question,
+// unit, verdict, flagged sentences, answer.
 let reportSessionId = null;
+let reportSummary = null;
 
 function setView(view, tabEl) {
   document.querySelectorAll('[data-view]').forEach(t => t.classList.remove('active'));
@@ -1436,23 +1284,195 @@ function setView(view, tabEl) {
   }
 }
 
-function toggleCard(header) {
-  const body = header.nextElementSibling;
-  const chev = header.querySelector('.card-chevron');
-  body.classList.toggle('open');
-  chev.classList.toggle('open');
+// Renders the summary from the strings the backend resolved via
+// analysis/report_content.py - the same ones the PDF prints.
+function renderReportSummary(summary) {
+  reportSummary = summary;
+
+  document.getElementById('rpt-banner-spine').style.background = summary.review_accent;
+  document.getElementById('rpt-verdict-title').textContent = summary.review_title || '';
+  document.getElementById('rpt-verdict-sub').textContent = summary.review_subtitle || '';
+
+  const tiles = [
+    { num: summary.flagged_count,
+      label: 'Flagged for review<br>' + summary.flagged_pct + '% of ' + summary.assessed_count + ' assessed',
+      colour: summary.flagged_count ? summary.review_accent : null },
+    { num: summary.ai_count, label: 'Outright AI verdicts',
+      colour: summary.ai_count ? 'var(--r-critical)' : null },
+    { num: (summary.mixed_count || 0) + (summary.ai_polished_count || 0),
+      label: 'Mixed or partial indicators', colour: null },
+    { num: summary.assessed_count + '/' + summary.total_answers,
+      label: 'Answers assessed', colour: null },
+  ];
+  document.getElementById('rpt-tiles').innerHTML = tiles.map(t =>
+    `<div class="rpt-tile">
+       <div class="rpt-tile-num"${t.colour ? ` style="color:${t.colour}"` : ''}>${t.num}</div>
+       <div class="rpt-tile-label">${t.label}</div>
+     </div>`).join('');
+
+  const total = summary.total_answers || 0;
+  document.getElementById('rpt-bar').innerHTML = (summary.verdict_mix_bar || [])
+    .filter(seg => seg.count > 0)
+    .map(seg => `<span style="background:${seg.colour}; flex:${seg.count} 1 0; min-width:3px;"></span>`)
+    .join('');
+
+  document.getElementById('rpt-legend').innerHTML = (summary.verdict_mix || []).map(row =>
+    `<tr>
+       <td class="sw"><i style="background:${row.colour}"></i></td>
+       <td>${escapeHtml(row.label)}</td>
+       <td class="num">${row.count}</td>
+       <td class="pct">${total ? Math.round(row.count / total * 100) + '%' : '—'}</td>
+     </tr>`).join('');
+
+  document.getElementById('rpt-rec').textContent = summary.recommendation || '';
+  document.getElementById('rpt-notes').textContent = (summary.notes || []).join(' ');
+  document.getElementById('rpt-guide').innerHTML = (summary.reading_guide || []).map(g =>
+    `<div class="rpt-guide-row">
+       <div class="rpt-guide-term">${escapeHtml(g.term)}</div>
+       <div>${g.body}</div>
+     </div>`).join('');
+
+  renderAnswerSections();
 }
 
-function toggleFullAnswer(idx, btn) {
-  const el = document.getElementById(`ans-${idx}`);
-  const data = answerTextStore[idx];
-  if (!data) return;
-  if (btn.textContent.startsWith('Show')) {
-    el.textContent = data.full;
-    btn.textContent = 'Show less ↑';
-  } else {
-    el.textContent = data.preview;
-    btn.textContent = 'Show full answer ↓';
+const DEFAULT_CLASSIFICATION_STYLE = {
+  'AI': { colour: '#d03b3b', label: 'AI' },
+  'Mixed': { colour: '#ec835a', label: 'MIXED' },
+  'AI Polished': { colour: '#ec835a', label: 'HUMAN + AI PARTS' },
+  'Human': { colour: '#2a78d6', label: 'HUMAN' },
+  'Insufficient Text': { colour: '#9a9a94', label: 'NOT ASSESSED' },
+  'Unknown': { colour: '#9a9a94', label: 'NO RESULT' }
+};
+
+function buildAnswerCard(a, idx) {
+  const style = (reportSummary && reportSummary.classification_style)
+             || DEFAULT_CLASSIFICATION_STYLE;
+  const cls = a.overall_classification || 'Unknown';
+  const meta = style[cls] || { colour: 'var(--r-none)', label: String(cls).toUpperCase() };
+  const notAssessed = cls === 'Insufficient Text' || cls === 'Unknown';
+
+  const card = document.createElement('div');
+  card.className = 'answer-card rpt-card';
+  card.dataset.classification = cls;
+
+  const bits = [`<strong>#${idx + 1}</strong>`];
+  if (!notAssessed) bits.push(`AI Score <strong>${a.ai_percentage || 0}%</strong>`);
+  if (a.word_count) bits.push(`${a.word_count} words`);
+
+  const flags = (a.ai_flagged_sentences || []).slice(0, 10);
+  const flagsHtml = (flags.length && !notAssessed) ? `
+    <div class="rpt-flags-head">Sentences flagged as AI-generated</div>
+    ${flags.map(t => `<div class="rpt-flag">▸ ${escapeHtml(String(t))}</div>`).join('')}` : '';
+
+  const verdictHtml = notAssessed
+    ? `<div class="rpt-verdict">Too little text to reach a reliable verdict — not counted in the verdict mix.</div>`
+    : `<div class="rpt-verdict"><strong>Verdict:</strong> ${escapeHtml(a.feedback || a.overall_verdict || '')}</div>`;
+
+  const answerText = a.answer_full || a.answer_preview || '';
+  answerTextStore[idx] = { full: answerText, preview: a.answer_preview || '' };
+
+  card.innerHTML = `
+    <div class="rpt-card-spine" style="background:${meta.colour}"></div>
+    <div class="rpt-card-body">
+      <div class="rpt-meta">
+        <span class="rpt-badge" style="background:${meta.colour}">${escapeHtml(meta.label)}</span>
+        <span>${bits.join(' · ')}</span>
+      </div>
+      <div class="rpt-q">${escapeHtml(a.question || '')}</div>
+      <div class="rpt-unit">${escapeHtml(a.unit || '')}</div>
+      ${verdictHtml}
+      ${flagsHtml}
+      ${answerText ? `<div class="rpt-answer">${escapeHtml(answerText)}</div>` : ''}
+    </div>`;
+  return card;
+}
+
+// Compact reference list for answers that need no action, matching the PDF -
+// grouped under a unit band so the unit is never lost.
+function buildCompactTable(rows, showScore) {
+  const table = document.createElement('table');
+  table.className = 'rpt-table';
+  const cols = showScore ? 3 : 2;
+  let html = `<thead><tr><th class="idx">#</th><th>Question</th>${showScore ? '<th class="n">AI score</th>' : ''}</tr></thead><tbody>`;
+  let unit = null;
+  rows.forEach(({ n, r }) => {
+    if (r.unit !== unit) {
+      unit = r.unit;
+      html += `<tr class="band"><td colspan="${cols}">${escapeHtml(unit || '')}</td></tr>`;
+    }
+    html += `<tr data-classification="${escapeHtml(r.overall_classification || '')}">
+      <td class="idx">${n}</td><td>${escapeHtml(r.question || '')}</td>
+      ${showScore ? `<td class="n">${r.ai_percentage || 0}%</td>` : ''}</tr>`;
+  });
+  return (html += '</tbody>'), (table.innerHTML = html), table;
+}
+
+// Lays out the three sections exactly as the report does: flagged first and
+// grouped by severity, then the routine answers as compact lists.
+function renderAnswerSections(filter) {
+  const container = document.getElementById('answer-cards');
+  if (!container || !reportSummary) return;
+  filter = filter || currentFilter || 'all';
+  container.innerHTML = '';
+  answerTextStore = {};
+
+  const rank = { 'AI': 0, 'Mixed': 1, 'AI Polished': 2 };
+  const isFlagged = c => c === 'AI' || c === 'Mixed' || c === 'AI Polished';
+  const unassessed = c => c === 'Insufficient Text' || c === 'Unknown';
+
+  const flagged = allResults.filter(r => isFlagged(r.overall_classification)).sort((a, b) =>
+    (rank[a.overall_classification] ?? 3) - (rank[b.overall_classification] ?? 3)
+    || (b.feedback_level ?? 0) - (a.feedback_level ?? 0)
+    || (a.order ?? 0) - (b.order ?? 0));
+  const human = allResults.filter(r => r.overall_classification === 'Human')
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const notAssessed = allResults.filter(r => unassessed(r.overall_classification))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const section = (title, caption) => {
+    const d = document.createElement('div');
+    d.innerHTML = `<div class="rpt-section-title">${escapeHtml(title)}</div>
+                   <div class="rpt-section-cap">${caption}</div>`;
+    return d;
+  };
+
+  let n = 1;
+  const labels = reportSummary.flagged_group_labels || {};
+  const style = reportSummary.classification_style || DEFAULT_CLASSIFICATION_STYLE;
+  const show = c => filter === 'all' || c === filter
+                 || (filter === 'flagged' && isFlagged(c));
+
+  if (flagged.length && show('AI') + show('Mixed') + show('AI Polished') > 0) {
+    container.appendChild(section('Flagged for review',
+      `${flagged.length} answer(s) not classified as plainly human-written, ordered by severity — outright AI verdicts first, then mixed signals, then answers judged human but possibly containing AI parts.`));
+    let group = null;
+    flagged.filter(r => show(r.overall_classification)).forEach(r => {
+      if (r.overall_classification !== group) {
+        group = r.overall_classification;
+        const colour = (style[group] || {}).colour || 'var(--r-none)';
+        const count = flagged.filter(x => x.overall_classification === group
+                                          && show(x.overall_classification)).length;
+        const band = document.createElement('div');
+        band.className = 'rpt-group-band';
+        band.style.color = colour;
+        band.textContent = `${labels[group] || group} (${count})`;
+        container.appendChild(band);
+      }
+      container.appendChild(buildAnswerCard(r, n - 1));
+      n++;
+    });
+  }
+
+  if (human.length && show('Human')) {
+    container.appendChild(section('Human-classified answers',
+      `${human.length} answer(s) classified as human-written, in unit and question order. Listed for completeness; no action indicated.`));
+    container.appendChild(buildCompactTable(human.map(r => ({ n: n++, r })), true));
+  }
+
+  if (notAssessed.length && show('Insufficient Text')) {
+    container.appendChild(section('Not assessed',
+      `${notAssessed.length} answer(s) with too little text to assess. Excluded from the counts above; no verdict is shown because none would be reliable.`));
+    container.appendChild(buildCompactTable(notAssessed.map(r => ({ n: n++, r })), false));
   }
 }
 
@@ -1460,46 +1480,7 @@ function filterCards(classification, tabEl) {
   currentFilter = classification;
   document.querySelectorAll('[data-filter]').forEach(t => t.classList.remove('active'));
   tabEl.classList.add('active');
-  document.querySelectorAll('.answer-card').forEach(card => {
-    const cls = card.dataset.classification;
-    const isFlagged = cls === 'AI' || cls === 'Mixed' || cls === 'AI Polished';
-    if (classification === 'all' || cls === classification ||
-        (classification === 'flagged' && isFlagged)) {
-      card.classList.remove('hidden');
-    } else {
-      card.classList.add('hidden');
-    }
-  });
-}
-
-function sortCards(mode, tabEl) {
-  document.querySelectorAll('[data-sort]').forEach(t => t.classList.remove('active'));
-  tabEl.classList.add('active');
-
-  let sorted = [...allResults];
-  if (mode === 'severity') {
-    // Same ordering as the PDF: most serious classification first, then the
-    // stronger detector wording, then original order.
-    const rank = { 'AI': 0, 'Mixed': 1, 'AI Polished': 2, 'Human': 3 };
-    sorted.sort((a, b) =>
-      (rank[a.overall_classification] ?? 4) - (rank[b.overall_classification] ?? 4)
-      || (b.feedback_level ?? 0) - (a.feedback_level ?? 0)
-      || (a.order ?? 0) - (b.order ?? 0));
-  }
-
-  answerTextStore = {};
-  const container = document.getElementById('answer-cards');
-  container.innerHTML = '';
-  sorted.forEach((result, i) => {
-    const card = buildAnswerCard(result, i);
-    const cls = card.dataset.classification;
-    const isFlagged = cls === 'AI' || cls === 'Mixed' || cls === 'AI Polished';
-    if (currentFilter !== 'all' && cls !== currentFilter &&
-        !(currentFilter === 'flagged' && isFlagged)) {
-      card.classList.add('hidden');
-    }
-    container.appendChild(card);
-  });
+  renderAnswerSections(classification);
 }
 
 function escapeHtml(str) {

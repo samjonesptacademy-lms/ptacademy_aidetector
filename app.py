@@ -47,6 +47,13 @@ def load_courses_config():
 # Load configurations at startup
 COURSES_CONFIG = load_courses_config()
 
+# Presentation content shared with the PDF, so the browser renders exactly the
+# strings the report prints rather than its own copy of them.
+from analysis.report_content import (
+    CLASSIFICATION_STYLE, FLAGGED_GROUP_LABELS, READING_GUIDE,
+    build_notes, build_recommendation, review_level, verdict_mix, verdict_mix_bar,
+)
+
 # Build field mapping for quick lookups
 def build_field_map():
     """Create mapping of field_name -> {course_id: (unit_id, unit_label, question_label)}.
@@ -1014,6 +1021,41 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
             'order': r.get('order', 0),
         })
 
+    # Resolve the report's own wording here so the PDF and the on-screen
+    # results cannot render different text for the same analysis.
+    _core = {
+        'portfolio_risk': portfolio_risk,
+        'assessed_count': len(assessed),
+        'total_answers': len(results),
+        'ai_count': ai_count,
+        'mixed_count': mixed_count,
+        'ai_polished_count': ai_polished_count,
+        'human_count': human_count,
+        'unassessable_count': unassessable_count,
+        'flagged_count': flagged_count,
+        'short_answer_count': short_answer_count,
+        'quality_note': quality_note,
+    }
+    review_accent, review_title, review_subtitle = review_level(portfolio_risk)
+    presentation = {
+        'review_accent': review_accent,
+        'review_title': review_title,
+        'review_subtitle': review_subtitle,
+        'recommendation': build_recommendation(_core),
+        'notes': build_notes(_core),
+        'verdict_mix': [
+            {'label': l, 'count': c, 'colour': col} for l, c, col in verdict_mix(_core)
+        ],
+        'verdict_mix_bar': [
+            {'label': l, 'count': c, 'colour': col} for l, c, col in verdict_mix_bar(_core)
+        ],
+        'reading_guide': [{'term': t, 'body': b} for t, b in READING_GUIDE],
+        'classification_style': {
+            k: {'colour': v[0], 'label': v[1]} for k, v in CLASSIFICATION_STYLE.items()
+        },
+        'flagged_group_labels': FLAGGED_GROUP_LABELS,
+    }
+
     # Keep the coarse badge in step with the banded portfolio risk.
     overall_risk = {
         'Detailed Review': 'high',
@@ -1059,6 +1101,7 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
             'short_answer_pct': short_answer_pct,
             'quality_note': quality_note,
             'risk_breakdown': risk_breakdown,
+            **presentation,
         }
     }
     # Persist to a shared on-disk store so any gunicorn worker can serve the
@@ -1115,6 +1158,7 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
             'short_answer_pct': short_answer_pct,
             'quality_note': quality_note,
             'risk_breakdown': risk_breakdown,
+            **presentation,
         },
         'zerogpt_calls': gpt_calls,
         'session_id': session_id,
