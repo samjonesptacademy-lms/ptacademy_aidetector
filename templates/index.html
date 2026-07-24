@@ -939,39 +939,40 @@
 
   <!-- First-visit notice. Shown once per assessor, keyed by version so a future
        change can re-announce itself without nagging in the meantime. -->
-  <div class="modal-backdrop" id="whatsnew-modal" onclick="if(event.target===this) dismissWhatsNew()">
+  <!-- Mandatory acknowledgement gate. No backdrop / Esc / X dismissal — the
+       assessor must tick the box and continue before the upload form behind it
+       is reachable. -->
+  <div class="modal-backdrop" id="whatsnew-modal">
     <div class="modal rpt" role="dialog" aria-modal="true" aria-labelledby="whatsnew-title" style="max-width: 620px;">
       <div class="modal-head">
         <div>
-          <div class="rpt-eyebrow">UPDATED &middot; JULY 2026</div>
-          <div class="modal-title" id="whatsnew-title" style="margin-top:4px;">Your AI reports have changed</div>
+          <div class="rpt-eyebrow">PLEASE READ BEFORE YOU START</div>
+          <div class="modal-title" id="whatsnew-title" style="margin-top:4px;">There's a new learner copy of the report</div>
         </div>
-        <button class="modal-close" onclick="dismissWhatsNew()" aria-label="Close">&#10005;</button>
       </div>
 
       <div style="font-size:13.5px; line-height:1.6; color:var(--r-ink-soft); margin-top:10px;">
-        <p style="margin-bottom:10px;">Three things are different, and one of them changes how you read every answer:</p>
+        <p style="margin-bottom:10px;">You can now download a <strong style="color:var(--r-ink);">learner copy</strong> of each report — a version written to share directly with the learner. It lists the answers for them to review in their own words, with <strong style="color:var(--r-ink);">no scores, verdicts or detection detail</strong>. Look for <strong style="color:var(--r-ink);">“Download learner copy”</strong> next to the usual download once a report is ready.</p>
+        <p style="font-size:12px; color:var(--r-ink-muted); margin-bottom:10px;">The full report you download for your own records is unchanged. A reminder of how to read it:</p>
         <ul style="list-style:none; padding:0;">
-          <li style="padding:7px 0; border-top:1px solid var(--r-rule);">
+          <li style="padding:6px 0; border-top:1px solid var(--r-rule);">
             <strong style="color:var(--r-ink);">There is no overall percentage.</strong>
-            Every report now opens with a <strong style="color:var(--r-ink);">Portfolio Verdict</strong> telling you what to do.
+            Each report opens with a <strong style="color:var(--r-ink);">Portfolio Verdict</strong> telling you what to do.
           </li>
-          <li style="padding:7px 0; border-top:1px solid var(--r-rule);">
-            <strong style="color:var(--r-ink);">Answers needing review come first</strong>, most serious at the top &mdash; with the specific sentences flagged.
-          </li>
-          <li style="padding:7px 0; border-top:1px solid var(--r-rule);">
+          <li style="padding:6px 0; border-top:1px solid var(--r-rule);">
             <strong style="color:var(--r-ink);">Verdict is the primary signal; AI Score is secondary</strong> and the two can disagree. Where they differ, follow the Verdict.
           </li>
         </ul>
       </div>
 
-      <div style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap;">
-        <a class="btn-analyse" href="/training-deck" target="_blank" rel="noopener"
-           onclick="dismissWhatsNew()"
-           style="flex:1; min-width:200px; text-align:center; text-decoration:none; margin-top:0;">
-          Read the 2-minute briefing
-        </a>
-        <button class="mode-btn" style="flex:0 0 auto; padding:13px 20px;" onclick="dismissWhatsNew()">Not now</button>
+      <label style="display:flex; align-items:flex-start; gap:9px; margin-top:16px; padding:11px 13px; background:var(--r-surface); border-radius:6px; cursor:pointer; font-size:13px;">
+        <input type="checkbox" id="wn-ack" onchange="syncAckButton()" style="margin-top:2px; flex:0 0 auto; width:16px; height:16px; cursor:pointer;">
+        <span>I understand there is now a learner copy I can share with learners, and I know where to find it.</span>
+      </label>
+
+      <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; align-items:center;">
+        <button id="wn-continue" class="btn-analyse" style="flex:1; min-width:200px; margin-top:0;" onclick="acknowledgeWhatsNew()" disabled>Continue to the tool</button>
+        <a class="mode-btn" href="/training-deck" target="_blank" rel="noopener" style="flex:0 0 auto; padding:13px 20px; text-decoration:none; text-align:center;">Read the briefing</a>
       </div>
       <p style="font-size:11.5px; color:var(--r-ink-muted); margin-top:10px;">
         You can reopen this any time from <strong>Help</strong> at the top of the page.
@@ -1199,20 +1200,33 @@ courseSelect.addEventListener('change', (e) => {
 
 // Bump the version to re-announce after a future change; assessors who have
 // already dismissed this one will then see the new notice once.
-const WHATS_NEW_VERSION = '2026-07-23';
+const WHATS_NEW_VERSION = '2026-07-24-learner-copy';
 
-function dismissWhatsNew() {
-  document.getElementById('whatsnew-modal').classList.remove('show');
-  try { localStorage.setItem('pta_whatsnew_seen', WHATS_NEW_VERSION); } catch (e) {}
+function whatsNewAcknowledged() {
+  try { return localStorage.getItem('pta_whatsnew_seen') === WHATS_NEW_VERSION; }
+  catch (e) { return false; }
 }
-function showWhatsNew() { document.getElementById('whatsnew-modal').classList.add('show'); }
+function syncAckButton() {
+  document.getElementById('wn-continue').disabled = !document.getElementById('wn-ack').checked;
+}
+function acknowledgeWhatsNew() {
+  // Only proceeds once the box is ticked (the button is disabled otherwise).
+  if (!document.getElementById('wn-ack').checked) return;
+  try { localStorage.setItem('pta_whatsnew_seen', WHATS_NEW_VERSION); } catch (e) {}
+  document.getElementById('whatsnew-modal').classList.remove('show');
+}
+function showWhatsNew() {
+  // Reopened from Help after acknowledging: pre-tick so it can be closed again.
+  const cb = document.getElementById('wn-ack');
+  cb.checked = whatsNewAcknowledged();
+  syncAckButton();
+  document.getElementById('whatsnew-modal').classList.add('show');
+}
 
 (function () {
-  let seen = null;
-  // Private browsing or blocked storage throws; show the notice rather than
-  // suppress it on an error.
-  try { seen = localStorage.getItem('pta_whatsnew_seen'); } catch (e) {}
-  if (seen !== WHATS_NEW_VERSION) {
+  // Mandatory on launch until acknowledged. Private browsing or blocked storage
+  // throws on read, in which case it shows rather than being suppressed.
+  if (!whatsNewAcknowledged()) {
     document.addEventListener('DOMContentLoaded', showWhatsNew);
   }
 })();
@@ -1220,7 +1234,7 @@ function showWhatsNew() { document.getElementById('whatsnew-modal').classList.ad
 function showCovers() { document.getElementById('covers-modal').classList.add('show'); }
 function hideCovers() { document.getElementById('covers-modal').classList.remove('show'); }
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { hideCovers(); dismissWhatsNew(); }
+  if (e.key === 'Escape') { hideCovers(); }  // the acknowledgement gate is not Esc-dismissable
 });
 
 function setAnalysisMode(mode) {
@@ -1333,6 +1347,10 @@ function hide(id) { document.getElementById(id).style.display = 'none'; document
 
 function runAnalysis() {
   if (!selectedFile || !selectedCourse || !learnerName || !assessorName) return;
+
+  // Belt-and-braces: the gate overlay already blocks the form, but guard the
+  // upload itself so it cannot run until the notice is acknowledged.
+  if (!whatsNewAcknowledged()) { showWhatsNew(); return; }
 
   document.getElementById('upload-section').style.display = 'none';
   document.getElementById('results').style.display = 'none';
