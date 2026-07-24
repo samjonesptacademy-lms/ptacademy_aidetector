@@ -15,6 +15,7 @@ vision deficiency; green was rejected for the "clear" tier because green against
 the attention orange fails protanopia separation, hence blue.
 """
 
+import re
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -109,8 +110,8 @@ def _styles():
     return s
 
 
-def _footer(canvas, doc, learner_name):
-    """Running footer: learner on the left, page number on the right."""
+def _footer(canvas, doc, learner_name, label='AI Detection Report'):
+    """Running footer: document label + learner on the left, page number right."""
     canvas.saveState()
     canvas.setFont('Helvetica', 7)
     canvas.setFillColor(colors.HexColor(INK_MUTED))
@@ -119,7 +120,7 @@ def _footer(canvas, doc, learner_name):
     canvas.setLineWidth(0.5)
     canvas.line(doc.leftMargin, y + 12, doc.width + doc.leftMargin, y + 12)
     canvas.drawString(doc.leftMargin, y,
-                      f'PT Academy AI Detection Report — {learner_name}')
+                      f'PT Academy {label} — {learner_name}')
     canvas.drawRightString(doc.width + doc.leftMargin, y,
                            f'Page {canvas.getPageNumber()}')
     canvas.restoreState()
@@ -208,8 +209,190 @@ def _badge(text, colour):
     return t, width
 
 
-def generate_pdf_report(results):
-    """Generate the analysis report as PDF bytes."""
+def _generate_learner_report(results):
+    """A learner-facing version of the report.
+
+    Deliberately narrower than the assessor report. It answers one question for
+    the learner - "is there anything I need to do before my work is marked?" -
+    and, if so, lists the answers to review. Everything that reads as a verdict,
+    a score, a methodology note or an accusation is removed, and the accent is
+    brand gold rather than red so a highlighted passage never signals guilt.
+    """
+    answer_results = results.get('results', [])
+    summary = results.get('summary', {})
+    learner_name = results.get('learner_name', 'Learner')
+    assessor_name = results.get('assessor_name', '')
+    course_name = results.get('course_name', '')
+
+    # Only answers a learner might act on. Mixed / AI / AI-Polished all reduce to
+    # the same ask - review and confirm it is in your own words - so no
+    # distinction between them is drawn or needed here.
+    review = sorted(
+        [r for r in answer_results
+         if r.get('overall_classification') not in ('Human',) + UNASSESSED],
+        key=lambda x: x.get('order', 0))
+
+    s = _styles()
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=letter,
+        leftMargin=0.7 * inch, rightMargin=0.7 * inch,
+        topMargin=0.5 * inch, bottomMargin=0.75 * inch,
+        title=f'Authenticity Check — {learner_name}', author='PT Academy',
+    )
+    W = doc.width
+    el = []
+
+    # ── MASTHEAD ─────────────────────────────────────────────────────────────
+    generated = datetime.now().strftime('%d %B %Y')
+    meta = [f'<b>Learner:</b> {escape(learner_name)}']
+    if course_name:
+        meta.append(f'<b>Course:</b> {escape(course_name)}')
+    meta.append(f'{generated}')
+    head_left = [Paragraph('PT ACADEMY', s['eyebrow']),
+                 Paragraph('Workbook Authenticity Check', s['title']),
+                 Spacer(1, 3),
+                 Paragraph('  ·  '.join(meta), s['subtitle'])]
+
+    logo_path = Path(__file__).parent.parent / 'logo.png'
+    if logo_path.exists():
+        try:
+            head = Table(
+                [[head_left, Image(str(logo_path), width=0.62 * inch, height=0.62 * inch)]],
+                colWidths=[W - 0.8 * inch, 0.8 * inch])
+            head.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            el.append(head)
+        except Exception:
+            el.extend(head_left)
+    else:
+        el.extend(head_left)
+    el.append(Spacer(1, 16))
+
+    # ── INTRO ────────────────────────────────────────────────────────────────
+    intro = ('As part of our quality checks, every workbook is reviewed to confirm the '
+             'answers are written in the learner\'s own words. This is a routine step that '
+             'applies to all learners.')
+    el.append(Paragraph(intro, s['body']))
+    el.append(Spacer(1, 14))
+
+    if not review:
+        # Nothing to action.
+        panel = Table([[[
+            Paragraph('NOTHING TO DO', ParagraphStyle(
+                'ClearEyebrow', parent=s['eyebrow'], textColor=colors.HexColor(PRIORITY_CLEAR))),
+            Spacer(1, 5),
+            Paragraph('Your workbook raised no questions in this check. There is nothing you '
+                      'need to do. Well done.', s['body']),
+        ]]], colWidths=[W])
+        panel.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor(SURFACE)),
+            ('LEFTPADDING', (0, 0), (-1, -1), 13), ('RIGHTPADDING', (0, 0), (-1, -1), 13),
+            ('TOPPADDING', (0, 0), (-1, -1), 12), ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('LINEABOVE', (0, 0), (-1, 0), 3, colors.HexColor(PRIORITY_CLEAR)),
+        ]))
+        el.append(panel)
+    else:
+        n = len(review)
+        # ── WHAT TO DO ───────────────────────────────────────────────────────
+        do = (f'{n} of your answers ' + ('has' if n == 1 else 'have') +
+              ' been highlighted for you to look over before your work is marked. '
+              'For each one, please read it back and make sure it is written fully in your '
+              'own words. If you used any notes, websites or tools to help you, that is fine '
+              '— just rewrite the answer in your own words so it reflects your own '
+              'understanding, then let your assessor know once you have updated it.')
+        reassure = ('Being asked to review an answer is not an accusation. This check is a '
+                    'guide, not a decision, and sometimes there is nothing wrong at all — '
+                    'reviewing simply confirms the work is your own.')
+        panel = Table([[[
+            Paragraph('WHAT TO DO', s['eyebrow']), Spacer(1, 5),
+            Paragraph(do, s['body']), Spacer(1, 7),
+            Paragraph(reassure, s['caption']),
+        ]]], colWidths=[W])
+        panel.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor(SURFACE)),
+            ('LEFTPADDING', (0, 0), (-1, -1), 13), ('RIGHTPADDING', (0, 0), (-1, -1), 13),
+            ('TOPPADDING', (0, 0), (-1, -1), 12), ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('LINEABOVE', (0, 0), (-1, 0), 3, colors.HexColor(BRAND_GOLD)),
+        ]))
+        el.append(panel)
+
+        # ── ANSWERS TO REVIEW ────────────────────────────────────────────────
+        el.append(Spacer(1, 20))
+        el.append(Paragraph('Answers to review', s['section']))
+        el.append(Paragraph(f'{n} answer(s), in the order they appear in your workbook.',
+                            s['caption']))
+        el.append(Spacer(1, 10))
+
+        gold_flag = ParagraphStyle('GoldFlag', parent=s['answer'],
+                                   textColor=colors.HexColor('#7a6600'), leftIndent=7)
+
+        for idx, r in enumerate(review, 1):
+            # Strip the workbook's own leading number ("15. ...") so the clean
+            # review-list number does not double up with it.
+            q = re.sub(r'^\s*\d+\.\s*', '', r.get('question', ''))
+            body = [Paragraph(f"{idx}. {escape(q)}", s['question'])]
+            if r.get('unit'):
+                body.append(Paragraph(escape(r.get('unit', '')), s['caption']))
+            body.append(Spacer(1, 6))
+
+            sentences = [str(x) for x in (r.get('ai_flagged_sentences') or []) if str(x).strip()]
+            if sentences:
+                body.append(Paragraph('Please review these passages and make sure they are '
+                                      'in your own words:', s['bodysoft']))
+                body.append(Spacer(1, 3))
+                for sent in sentences[:10]:
+                    body.append(Paragraph(f'•&nbsp; {escape(sent)}', gold_flag))
+            else:
+                body.append(Paragraph('Please review this answer in full and make sure it is '
+                                      'written in your own words.', s['bodysoft']))
+
+            card = Table([['', body]], colWidths=[3, W - 3])
+            card.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, 0), colors.HexColor(BRAND_GOLD)),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (0, 0), 0), ('RIGHTPADDING', (0, 0), (0, 0), 0),
+                ('LEFTPADDING', (1, 0), (1, 0), 12), ('RIGHTPADDING', (1, 0), (1, 0), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ]))
+            el.append(KeepTogether([card, Spacer(1, 10)]))
+
+    # ── CLOSE ────────────────────────────────────────────────────────────────
+    el.append(Spacer(1, 16))
+    contact = 'If you have any questions about this check or your workbook, please speak to '
+    contact += (f'your assessor, {escape(assessor_name)}.' if assessor_name
+                else 'your assessor.')
+    close = Table([[Paragraph(contact, s['bodysoft'])]], colWidths=[W])
+    close.setStyle(TableStyle([
+        ('LINEABOVE', (0, 0), (-1, 0), 0.75, colors.HexColor(RULE)),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 10), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    el.append(close)
+
+    def on_page(canvas, doc_):
+        _footer(canvas, doc_, learner_name, label='Workbook Authenticity Check')
+
+    doc.build(el, onFirstPage=on_page, onLaterPages=on_page)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def generate_pdf_report(results, audience='assessor'):
+    """Generate the analysis report as PDF bytes.
+
+    audience='assessor' (default) is the full internal report. audience='learner'
+    is a version safe to hand directly to a learner: no scores, no raw detector
+    verdicts, no reliability caveats, no "misconduct" wording, and no red - a
+    supportive "please review these answers in your own words" note instead of a
+    judgement about the learner.
+    """
+    if audience == 'learner':
+        return _generate_learner_report(results)
     answer_results = results.get('results', [])
     summary = results.get('summary', {})
     learner_name = results.get('learner_name', 'Unknown Learner')

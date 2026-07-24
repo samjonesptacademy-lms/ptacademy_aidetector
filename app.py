@@ -1328,7 +1328,17 @@ def report_preview(session_id):
 
 @app.route('/download-report/<session_id>', methods=['GET'])
 def download_report(session_id):
-    """Download PDF report for analysis results."""
+    """Download the assessor report for an analysis."""
+    return _serve_report(session_id, audience='assessor')
+
+
+@app.route('/download-report/<session_id>/learner', methods=['GET'])
+def download_learner_report(session_id):
+    """Download the learner-facing report - safe to share with the learner."""
+    return _serve_report(session_id, audience='learner')
+
+
+def _serve_report(session_id, audience):
     try:
         from analysis.pdf_generator import generate_pdf_report
 
@@ -1338,14 +1348,11 @@ def download_report(session_id):
         if not analysis_data:
             return jsonify({'error': 'No analysis data found for this session. The analysis may have expired.'}), 404
 
-        # Generate PDF
-        pdf_bytes = generate_pdf_report(analysis_data)
+        pdf_bytes = generate_pdf_report(analysis_data, audience=audience)
 
         # Note: the stored report is intentionally NOT deleted here so the mentor
         # can re-download. Old reports are pruned by TTL in store_analysis_report.
 
-        # Generate dynamic filename with analysis mode
-        # Format: "{Learner Name}_{Course Name}_AI Report_{Full|Partial[_Units]}_{YYYY-MM-DD}.pdf"
         from datetime import datetime
         learner = analysis_data.get('learner_name', 'Learner')
         course = analysis_data.get('course_name', 'Course')
@@ -1367,7 +1374,10 @@ def download_report(session_id):
         else:
             mode_suffix = 'Full'
 
-        safe_name = re.sub(r'[^\w\s\-]', '', f"{learner}_{course}_AI Report_{mode_suffix}_{date_str}").strip()
+        doc_label = 'Learner Copy' if audience == 'learner' else 'AI Report'
+        base = (f"{learner}_{course}_{doc_label}_{date_str}" if audience == 'learner'
+                else f"{learner}_{course}_{doc_label}_{mode_suffix}_{date_str}")
+        safe_name = re.sub(r'[^\w\s\-]', '', base).strip()
         safe_name = re.sub(r'\s+', ' ', safe_name)
         filename = f"{safe_name}.pdf"
 

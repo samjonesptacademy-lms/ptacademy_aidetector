@@ -1079,7 +1079,11 @@
         <div class="rpt-guide" id="rpt-guide"></div>
       </div>
 
-      <button id="download-pdf-btn" class="download-button" style="display:none;" onclick="downloadReport()">📄 Download PDF Report</button>
+      <div id="download-row" style="display:none; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button id="download-pdf-btn" class="download-button" onclick="downloadReport('assessor')">📄 Download assessor report</button>
+        <button id="download-learner-btn" class="download-button" style="background:#fff; color:var(--r-ink); border:1px solid var(--r-rule); box-shadow:none;" onclick="downloadReport('learner')">📄 Download learner copy</button>
+        <span style="font-size:11.5px; color:var(--r-ink-muted); flex-basis:100%;">The learner copy is written to share directly with the learner — no scores, verdicts or detection detail.</span>
+      </div>
     </div>
 
     <!-- View switch: interactive cards, or the report itself -->
@@ -1434,9 +1438,9 @@ async function handleStreamingResponse(response) {
 
           if (summary.assessed_count !== undefined) {
             // Show download button and store session ID
-            const downloadBtn = document.getElementById('download-pdf-btn');
-            downloadBtn.style.display = 'inline-block';
-            downloadBtn.setAttribute('data-session-id', event.session_id || '');
+            const downloadRow = document.getElementById('download-row');
+            downloadRow.style.display = 'flex';
+            downloadRow.setAttribute('data-session-id', event.session_id || '');
 
             if (event.session_id) {
               reportSessionId = event.session_id;
@@ -1711,22 +1715,21 @@ function escapeHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function downloadReport() {
-  const downloadBtn = document.getElementById('download-pdf-btn');
-  const sessionId = downloadBtn.getAttribute('data-session-id');
+function downloadReport(audience) {
+  const sessionId = document.getElementById('download-row').getAttribute('data-session-id');
 
   if (!sessionId) {
     alert('Error: No session ID available. Please run the analysis again.');
     return;
   }
 
-  // Create download link using the session ID
-  const downloadUrl = `/download-report/${sessionId}`;
+  const downloadUrl = audience === 'learner'
+    ? `/download-report/${sessionId}/learner`
+    : `/download-report/${sessionId}`;
 
-  // Trigger download
   const link = document.createElement('a');
   link.href = downloadUrl;
-  link.download = 'AI Report.pdf';
+  link.download = audience === 'learner' ? 'Learner Copy.pdf' : 'AI Report.pdf';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
