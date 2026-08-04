@@ -34,6 +34,35 @@ if not ZEROGPT_API_KEY:
 
 ZEROGPT_ENDPOINT = 'https://api.zerogpt.com/api/detect/detectText'
 
+
+class ZeroGptAPIError(Exception):
+    """Zero GPT refused the request and said why in the body.
+
+    Zero GPT reports its own failures as HTTP 200 with {"success": false,
+    "code": 403, "message": "Not enough credits", "data": null} - so the status
+    code is not enough to spot them. Carrying the API's own message lets the
+    real reason reach the assessor instead of a generic parse failure.
+    """
+
+    def __init__(self, message, code=None):
+        super().__init__(message)
+        self.api_message = message
+        self.code = code
+
+    @property
+    def is_account_error(self):
+        """True when the account itself is blocked, not just this one request.
+
+        Credits, auth and quota problems will fail identically for every
+        remaining answer, so the caller aborts the run rather than repeating
+        the same failure for each one.
+        """
+        if self.code in (401, 402, 403):
+            return True
+        text = (self.api_message or '').lower()
+        return any(s in text for s in ('credit', 'quota', 'subscription', 'api key', 'unauthorized'))
+
+
 # ── CONFIGURATION LOADING ──────────────────────────────────────────────────────
 
 CONFIG_DIR = Path(__file__).parent / 'config'
@@ -482,8 +511,18 @@ def detect_with_zerogpt(question, answer, unit, course_id):
                 # Make API request to Zero GPT (increased timeout to 60s)
                 response = requests.post(ZEROGPT_ENDPOINT, json=payload, headers=headers, timeout=60)
 
-                # Fail fast on client errors that won't change on retry (bad key, bad request)
+                # Fail fast on client errors that won't change on retry (bad key,
+                # bad request). Zero GPT explains these in the body - as
+                # {"message": ...} or {"detail": "Invalid API Key"} - so lift
+                # that out rather than reporting a bare status code.
                 if 400 <= response.status_code < 500 and response.status_code != 429:
+                    try:
+                        body = response.json()
+                    except ValueError:
+                        body = {}
+                    detail = body.get('message') or body.get('detail')
+                    if detail:
+                        raise ZeroGptAPIError(detail, response.status_code)
                     response.raise_for_status()
 
                 # Transient server error or rate limit - retry
@@ -494,6 +533,18 @@ def detect_with_zerogpt(question, answer, unit, course_id):
                 # bodies are re-checked instead of being accepted as final.
                 # Zero GPT returns: { "success": true, "data": { "fakePercentage": 0-100, "feedback": "...", ... } }
                 response_data = response.json()
+
+                # Zero GPT signals its own refusals (no credits, bad key) as a
+                # 200 with success:false and a message. Surface that message and
+                # fail fast - retrying cannot conjure up credits, and the old
+                # code spent ~16s of backoff per answer before reporting it as
+                # an "empty response", which read like a server fault.
+                if response_data.get('success') is False:
+                    raise ZeroGptAPIError(
+                        response_data.get('message') or 'Zero GPT rejected the request',
+                        response_data.get('code'),
+                    )
+
                 data = response_data.get('data', {})
                 if not data or not data.get('feedback'):
                     raise ValueError("Empty or invalid response from Zero GPT API")
@@ -622,6 +673,27 @@ def detect_with_zerogpt(question, answer, unit, course_id):
             'ai_words': 0,
             'error': True,
         }
+    except ZeroGptAPIError as e:
+        logging.error(f"Zero GPT refused the request: {e.api_message} (code {e.code})")
+        return {
+            'overall_classification': 'Unknown',
+            'feedback_level': None,
+            'assessable': False,
+            'ai_percentage': 0,
+            'human_percentage': 0,
+            'ai_polished_percentage': 0,
+            'confidence': 0.0,
+            'overall_verdict': f'Detection unavailable: {e.api_message}',
+            'feedback': f'Error: {e.api_message}',
+            'ai_signals': [],
+            'ai_flagged_sentences': [],
+            'text_words': 0,
+            'ai_words': 0,
+            'error': True,
+            # Tells the stream to stop rather than repeat this for every answer.
+            'account_error': e.is_account_error,
+            'account_error_message': e.api_message,
+        }
     except Exception as e:
         return {
             'overall_classification': 'Unknown',
@@ -679,6 +751,10 @@ def analyse_answer(question, answer, unit, course_id):
                 'low_confidence_flag': word_count < 50,
                 'confidence_note': '⚠️ Low confidence (short answer < 50 words)' if word_count < 50 else '',
                 'error': True,
+                # Carried through so the stream can abort on account-level
+                # failures (no credits, bad key) instead of retrying each answer.
+                'account_error': zerogpt_result.get('account_error', False),
+                'account_error_message': zerogpt_result.get('account_error_message'),
             }
 
         # Get base confidence from Zero GPT result
@@ -844,6 +920,24 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
     # Analyse each answer and stream results
     for idx, a in enumerate(answers, 1):
         detection = analyse_answer(a['question'], a['answer'], a['unit'], course_id)
+
+        # An account-level failure (no credits, rejected key) will hit every
+        # remaining answer identically, so stop and say so once. Grinding on
+        # would produce a report of nothing but "Unknown" rows, which reads
+        # like the workbook was clean rather than like the check never ran.
+        if detection.get('account_error'):
+            reason = detection.get('account_error_message') or 'the detection service rejected the request'
+            yield json.dumps({
+                'type': 'fatal',
+                'error_title': 'Analysis stopped - detection service unavailable',
+                'error': (
+                    f'Zero GPT stopped accepting requests after {idx - 1} of {len(answers)} answers: '
+                    f'"{reason}". No report has been produced. This is an account or API key '
+                    'problem rather than a fault with the workbook - check the Zero GPT account '
+                    'balance, then run the workbook again.'
+                ),
+            }) + '\n'
+            return
 
         gpt_calls += 1
 

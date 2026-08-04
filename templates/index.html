@@ -1437,6 +1437,19 @@ async function handleStreamingResponse(response) {
           document.getElementById('result-filename').textContent = event.filename;
           document.getElementById('result-course').textContent = event.course_name;
         }
+        // The detection service gave up mid-run (no credits, rejected key).
+        // Hide the partial results so half a report is never mistaken for a
+        // finished one, and show the reason instead.
+        else if (event.type === 'fatal') {
+          reader.cancel();
+          document.getElementById('results').style.display = 'none';
+          document.getElementById('results').classList.remove('show');
+          document.getElementById('error-title').textContent =
+            event.error_title || 'Analysis could not run';
+          document.getElementById('error-msg').textContent = event.error;
+          document.getElementById('error-state').style.display = 'block';
+          return;
+        }
         else if (event.type === 'answer') {
           allResults.push(event.result);
           const container = document.getElementById('answer-cards');
