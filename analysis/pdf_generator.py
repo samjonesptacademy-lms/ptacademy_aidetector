@@ -194,6 +194,28 @@ def _legend(s, dist, total, width):
     return t
 
 
+# The answer extract lives in one table cell, and ReportLab cannot break a table
+# row across pages, so an extract taller than the frame aborts the whole build.
+# A character cap alone does not bound the height: 1400 characters of one-word
+# list items run far longer than 1400 characters of prose. Cap the rendered
+# lines as well, so the extract fits a page whatever shape the answer takes.
+EXTRACT_MAX_CHARS = 1400
+EXTRACT_MAX_LINES = 55        # x 11pt leading, comfortably inside a 702pt frame
+EXTRACT_CHARS_PER_LINE = 108  # Helvetica 8pt across the extract's ~486pt of text
+
+
+def _clip_extract(text):
+    """Trim an answer extract so it can never outgrow a single page."""
+    kept, lines = [], 0
+    for line in text[:EXTRACT_MAX_CHARS].split('\n'):
+        lines += max(1, -(-len(line) // EXTRACT_CHARS_PER_LINE))  # ceil division
+        if lines > EXTRACT_MAX_LINES:
+            break
+        kept.append(line)
+    clipped = '\n'.join(kept)
+    return clipped + '…' if len(clipped) < len(text) else clipped
+
+
 def _badge(text, colour):
     """Filled pill carrying the classification label."""
     p = ParagraphStyle('BadgeText', fontName='Helvetica-Bold', fontSize=6.5,
@@ -616,9 +638,7 @@ def generate_pdf_report(results, audience='assessor'):
             for sentence in sentences[:10]:
                 body.append(Paragraph(f'▸ {escape(str(sentence))}', s['flagged']))
 
-        answer_text = r.get('answer_full', '') or ''
-        if len(answer_text) > 1400:
-            answer_text = answer_text[:1400] + '…'
+        answer_text = _clip_extract(r.get('answer_full', '') or '')
         if answer_text:
             body.append(Spacer(1, 8))
             ans = Table([[Paragraph(escape(answer_text).replace('\n', '<br/>'), s['answer'])]],
@@ -631,14 +651,29 @@ def generate_pdf_report(results, audience='assessor'):
             body.append(ans)
 
         card_lead = lead or []
-        card = Table([['', body]], colWidths=[3, W - 3])
-        card.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, 0), colors.HexColor(colour)),
+        frame = [
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor(colour)),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (0, 0), 0), ('RIGHTPADDING', (0, 0), (0, 0), 0),
-            ('LEFTPADDING', (1, 0), (1, 0), 11), ('RIGHTPADDING', (1, 0), (1, 0), 0),
+            ('LEFTPADDING', (0, 0), (0, -1), 0), ('RIGHTPADDING', (0, 0), (0, -1), 0),
+            ('LEFTPADDING', (1, 0), (1, -1), 11), ('RIGHTPADDING', (1, 0), (1, -1), 0),
+        ]
+        card = Table([['', body]], colWidths=[3, W - 3])
+        card.setStyle(TableStyle(frame + [
             ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 11),
         ]))
+
+        # A one-row table is atomic, so a card taller than the frame aborts the
+        # whole build with a LayoutError rather than just overflowing. A long
+        # extract plus a full set of flagged sentences does reach that height,
+        # which is what stopped Geoff Collett's report generating at all. Give
+        # those cards a row per element instead: ReportLab breaks tables between
+        # rows, so the card flows onto the next page with the stripe continuing.
+        if card.wrap(W, doc.height)[1] > doc.height:
+            card = Table([['', part] for part in body], colWidths=[3, W - 3])
+            card.setStyle(TableStyle(frame + [
+                ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, 0), 2), ('BOTTOMPADDING', (0, -1), (-1, -1), 11),
+            ]))
         return KeepTogether(card_lead + [card, Spacer(1, 10)])
 
     def compact_table(rows_data, show_score):
