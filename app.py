@@ -50,17 +50,32 @@ class ZeroGptAPIError(Exception):
         self.code = code
 
     @property
-    def is_account_error(self):
-        """True when the account itself is blocked, not just this one request.
+    def is_permanent(self):
+        """True when retrying cannot help, because the key itself is rejected.
 
-        Credits, auth and quota problems will fail identically for every
-        remaining answer, so the caller aborts the run rather than repeating
-        the same failure for each one.
+        Zero GPT's other refusals are not trustworthy as final answers: a
+        healthy account with credits returns both "Please make a purchase before
+        accessing this resource" (403) and "Oh Oh, An Error occurred" (500) for
+        requests that succeed again seconds later. So only a rejected key skips
+        the backoff - everything else earns its retries first.
+        """
+        if self.code == 401:
+            return True
+        text = (self.api_message or '').lower()
+        return 'api key' in text or 'unauthorized' in text
+
+    @property
+    def is_account_error(self):
+        """True when the account itself looks blocked, not just this request.
+
+        Only consulted once the retries are spent. Credits, auth and quota
+        problems will then fail identically for every remaining answer, so the
+        caller aborts the run rather than repeating the same failure for each.
         """
         if self.code in (401, 402, 403):
             return True
         text = (self.api_message or '').lower()
-        return any(s in text for s in ('credit', 'quota', 'subscription', 'api key', 'unauthorized'))
+        return any(s in text for s in ('credit', 'quota', 'subscription', 'purchase', 'api key', 'unauthorized'))
 
 
 # ── CONFIGURATION LOADING ──────────────────────────────────────────────────────
@@ -551,6 +566,21 @@ def detect_with_zerogpt(question, answer, unit, course_id):
 
                 break  # Valid result received, exit retry loop
 
+            except ZeroGptAPIError as e:
+                # Zero GPT's refusals are mostly noise: the same key that gets
+                # "Please make a purchase before accessing this resource" (403)
+                # or "Oh Oh, An Error occurred" (500) sails through moments
+                # later with credits untouched. Because this is not a ValueError
+                # it used to skip the loop entirely, so a single blip on answer
+                # 44 of 78 ended the whole workbook with a billing message that
+                # sent us to check a balance that was never the problem. Retry
+                # them like any other transient fault; only a rejected key, or a
+                # refusal that outlasts every retry, is taken at its word.
+                if e.is_permanent or attempt >= max_retries:
+                    raise
+                time.sleep(min(base_delay * (2 ** attempt), 10))
+                continue
+
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, ValueError) as e:
                 # Timeout, connection error, transient status, JSON parse error,
                 # or empty body - retry with exponential backoff.
@@ -931,10 +961,11 @@ def generate_analysis_stream(answers, course_id, filename, learner_name='Unknown
                 'type': 'fatal',
                 'error_title': 'Analysis stopped - detection service unavailable',
                 'error': (
-                    f'Zero GPT stopped accepting requests after {idx - 1} of {len(answers)} answers: '
-                    f'"{reason}". No report has been produced. This is an account or API key '
-                    'problem rather than a fault with the workbook - check the Zero GPT account '
-                    'balance, then run the workbook again.'
+                    f'Zero GPT stopped accepting requests after {idx - 1} of {len(answers)} answers, '
+                    f'and kept refusing after several retries: "{reason}". No report has been '
+                    'produced. Nothing is wrong with the workbook. Zero GPT words some of its '
+                    'temporary faults as billing messages, so run the workbook again first - if it '
+                    'fails the same way twice, check the Zero GPT account balance and API key.'
                 ),
             }) + '\n'
             return
